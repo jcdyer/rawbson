@@ -1,0 +1,13 @@
+[package]
+name = "rawbson"
+version = "0.1.0"
+authors = ["J. Cliff Dyer <jcd@sdf.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bson = {version = "1.1", features = ["decimal128"] }
+chrono = "0.4"
+proptest = "0.10"
+decimal = "2.0.4"
