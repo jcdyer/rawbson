@@ -1061,19 +1061,6 @@ mod tests {
     }
 
     #[test]
-    fn object_id() {
-        let bson = super::RawBson::new(
-            ElementType::ObjectId,
-            &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        );
-        assert_eq!(
-            bson.as_object_id(),
-            Ok(oid::ObjectId::with_bytes([
-                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
-            ]))
-        );
-    }
-    #[test]
     fn iterate() {
         let docbytes = to_bytes(&doc! {
             "apples": "oranges",
@@ -1190,8 +1177,164 @@ mod tests {
         assert_eq!(binary.subtype, BinarySubtype::Generic);
         assert_eq!(binary.data, &[1, 2, 3]);
     }
+
     #[test]
-    fn bson_types() {
+    fn object_id() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "object_id": oid::ObjectId::with_bytes([1, 2, 3, 4, 5,6,7,8,9,10, 11,12]),
+        }));
+        let oid = rawdoc
+            .get("object_id")
+            .expect("no key object_id")
+            .as_object_id()
+            .expect("result was not an object id");
+        assert_eq!(oid.to_hex(), "0102030405060708090a0b0c");
+    }
+
+    #[test]
+    fn boolean() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "boolean": true,
+        }));
+
+        let boolean = rawdoc
+            .get("boolean")
+            .expect("no key boolean")
+            .as_bool()
+            .expect("result was not boolean");
+
+        assert_eq!(boolean, true);
+    }
+
+    #[test]
+    fn datetime() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "boolean": true,
+            "datetime": Utc.ymd(2000,10,31).and_hms(12, 30, 45),
+        }));
+        let datetime = rawdoc
+            .get("datetime")
+            .expect("no key datetime")
+            .as_utc_date_time()
+            .expect("result was not datetime");
+        assert_eq!(datetime.to_rfc3339(), "2000-10-31T12:30:45+00:00");
+    }
+
+    #[test]
+    fn null() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "null": null,
+        }));
+        let () = rawdoc
+            .get("null")
+            .expect("no key null")
+            .as_null()
+            .expect("was not null");
+    }
+
+    #[test]
+    fn regex() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "regex": Bson::RegularExpression(Regex { pattern: String::from(r"end\s*$"), options: String::from("i")}),
+        }));
+        let regex = rawdoc
+            .get("regex")
+            .expect("no key regex")
+            .as_regexp()
+            .expect("was not regex");
+        assert_eq!(regex.pattern, r"end\s*$");
+        assert_eq!(regex.options, "i");
+    }
+    #[test]
+    fn javascript() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "javascript": Bson::JavaScriptCode(String::from("console.log(console);")),
+        }));
+        let js = rawdoc
+            .get("javascript")
+            .expect("no key javascript")
+            .as_javascript()
+            .expect("was not javascript");
+        assert_eq!(js, "console.log(console);");
+    }
+
+    #[test]
+    fn symbol() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "symbol": Bson::Symbol(String::from("artist-formerly-known-as")),
+        }));
+
+        let symbol = rawdoc
+            .get("symbol")
+            .expect("no key symbol")
+            .as_symbol()
+            .expect("was not symbol");
+        assert_eq!(symbol, "artist-formerly-known-as");
+    }
+
+    #[test]
+    fn javascript_with_scope() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "javascript_with_scope": Bson::JavaScriptCodeWithScope(JavaScriptCodeWithScope{ code: String::from("console.log(msg);"), scope: doc!{"ok": true}}),
+        }));
+        let (js, scopedoc) = rawdoc
+            .get("javascript_with_scope")
+            .expect("no key javascript_with-scope")
+            .as_javascript_with_scope()
+            .expect("was not javascript with scope");
+        assert_eq!(js, "console.log(msg);");
+        let (scope_key, scope_value_bson) = scopedoc
+            .into_iter()
+            .next()
+            .expect("no next value in scope")
+            .expect("invalid element");
+        assert_eq!(scope_key, "ok");
+        let scope_value = scope_value_bson.as_bool().expect("not a boolean");
+        assert_eq!(scope_value, true);
+    }
+
+    #[test]
+    fn int32() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "int32": 23i32,
+        }));
+        let int32 = rawdoc
+            .get("int32")
+            .expect("no key int32")
+            .as_i32()
+            .expect("was not int32");
+        assert_eq!(int32, 23i32);
+    }
+
+    #[test]
+    fn timestamp() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "timestamp": Bson::Timestamp(Timestamp { time: 3542578, increment: 0 }),
+        }));
+        let ts = rawdoc
+            .get("timestamp")
+            .expect("no key timestamp")
+            .as_timestamp()
+            .expect("was not a timestamp");
+
+        assert_eq!(ts.increment().expect("timestamp has invalid increment"), 0);
+        assert_eq!(ts.time().expect("timestamp has invalid time"), 3542578);
+    }
+
+    #[test]
+    fn int64() {
+        let rawdoc = RawBsonDocBuf::new_unchecked(to_bytes(&doc! {
+            "int64": 46i64,
+        }));
+        let int64 = rawdoc
+            .get("int64")
+            .expect("no key int64")
+            .as_i64()
+            .expect("was not int64");
+        assert_eq!(int64, 46i64);
+    }
+    #[test]
+    fn document_iteration() {
         let docbytes = to_bytes(&doc! {
             "f64": 2.5,
             "string": "hello",
@@ -1213,93 +1356,7 @@ mod tests {
         });
         let rawdoc = RawBsonDoc::new_unchecked(&docbytes);
 
-        let oid = rawdoc
-            .get("object_id")
-            .expect("no key object_id")
-            .as_object_id()
-            .expect("result was not an object id");
-        assert_eq!(oid.to_hex(), "0102030405060708090a0b0c");
-
-        let boolean = rawdoc
-            .get("boolean")
-            .expect("no key boolean")
-            .as_bool()
-            .expect("result was not boolean");
-
-        assert_eq!(boolean, true);
-
-        let _dt: DateTime<Utc> = rawdoc
-            .get("datetime")
-            .expect("no key datetime")
-            .as_utc_date_time()
-            .expect("was not utc_date_time");
-
-        let () = rawdoc
-            .get("null")
-            .expect("no key null")
-            .as_null()
-            .expect("was not null");
-
-        let regex = rawdoc
-            .get("regex")
-            .expect("no key regex")
-            .as_regexp()
-            .expect("was not regex");
-        assert_eq!(regex.pattern, r"end\s*$");
-        assert_eq!(regex.options, "i");
-
-        let js = rawdoc
-            .get("javascript")
-            .expect("no key javascript")
-            .as_javascript()
-            .expect("was not javascript");
-        assert_eq!(js, "console.log(console);");
-
-        let symbol = rawdoc
-            .get("symbol")
-            .expect("no key symbol")
-            .as_symbol()
-            .expect("was not symbol");
-        assert_eq!(symbol, "artist-formerly-known-as");
-
-        let (js, scopedoc) = rawdoc
-            .get("javascript_with_scope")
-            .expect("no key javascript_with-scope")
-            .as_javascript_with_scope()
-            .expect("was not javascript with scope");
-        assert_eq!(js, "console.log(msg);");
-        let (scope_key, scope_value_bson) = scopedoc
-            .into_iter()
-            .next()
-            .expect("no next value in scope")
-            .expect("invalid element");
-        assert_eq!(scope_key, "ok");
-        let scope_value = scope_value_bson.as_bool().expect("not a boolean");
-        assert_eq!(scope_value, true);
-
-        let int32 = rawdoc
-            .get("int32")
-            .expect("no key int32")
-            .as_i32()
-            .expect("was not int32");
-        assert_eq!(int32, 23i32);
-
-        let ts = rawdoc
-            .get("timestamp")
-            .expect("no key timestamp")
-            .as_timestamp()
-            .expect("was not a timestamp");
-
-        assert_eq!(ts.increment().expect("timestamp has invalid increment"), 0);
-        assert_eq!(ts.time().expect("timestamp has invalid time"), 3542578);
-
-        let int64 = rawdoc
-            .get("int64")
-            .expect("no key int64")
-            .as_i64()
-            .expect("was not int64");
-        assert_eq!(int64, 46i64);
-
+        assert_eq!(rawdoc.into_iter().collect::<Result<Vec<(&str, _)>, RawError>>().expect("collecting iterated doc").len(), 17);
         let end = rawdoc
             .get("end")
             .expect("no key end")
