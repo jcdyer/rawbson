@@ -3,7 +3,7 @@ use bson::{Binary, Bson, Document, JavaScriptCodeWithScope, Regex, spec::BinaryS
 use proptest::prelude::*;
 
 
-fn arb_binary_subtype() -> impl Strategy<Value = BinarySubtype> {
+fn arbitrary_binary_subtype() -> impl Strategy<Value = BinarySubtype> {
     prop_oneof![
         Just(BinarySubtype::Generic),
         Just(BinarySubtype::Function),
@@ -24,7 +24,7 @@ pub(crate) fn arbitrary_bson() -> impl Strategy<Value = Bson> {
         any::<i64>().prop_map(Bson::Int64),
         any::<(String, String)>().prop_map(|(pattern, options)| Bson::RegularExpression(Regex { pattern, options })),
         any::<[u8; 12]>().prop_map(|bytes| Bson::ObjectId(crate::oid::ObjectId::with_bytes(bytes))),
-        (arb_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, bytes)| {
+        (arbitrary_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, bytes)| {
             let bytes = if let BinarySubtype::BinaryOld = subtype {
                 // BinarySubtype::BinaryOld expects a four byte prefix, which the bson::Bson type
                 // leaves up to the caller.
