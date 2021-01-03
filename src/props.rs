@@ -38,7 +38,7 @@ pub(crate) fn arbitrary_bson() -> impl Strategy<Value = Bson> {
             };
             Bson::Binary(Binary { subtype, bytes })
         }),
-        any::<String>().prop_map(|js| Bson::JavaScriptCode(js)),
+        any::<String>().prop_map(Bson::JavaScriptCode),
     ];
 
     leaf.prop_recursive(
@@ -48,7 +48,7 @@ pub(crate) fn arbitrary_bson() -> impl Strategy<Value = Bson> {
         |inner| prop_oneof![
             prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| Bson::Document(map.into_iter().collect())),
             prop::collection::vec(inner.clone(), 0..12).prop_map(Bson::Array),
-            (prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| map.into_iter().collect::<Document>()), any::<String>()).prop_map(|(scope, code)| Bson::JavaScriptCodeWithScope(JavaScriptCodeWithScope { code, scope })),
+            (prop::collection::hash_map("[^\0]*", inner, 0..12).prop_map(|map| map.into_iter().collect::<Document>()), any::<String>()).prop_map(|(scope, code)| Bson::JavaScriptCodeWithScope(JavaScriptCodeWithScope { code, scope })),
         ]
     )
 }
