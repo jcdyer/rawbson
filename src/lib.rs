@@ -3,10 +3,16 @@ use std::time::Duration;
 
 use chrono::{DateTime, TimeZone, Utc};
 
-use bson::{Bson, Document, JavaScriptCodeWithScope, Regex, Timestamp, document::ValueAccessError, oid, spec::{BinarySubtype, ElementType}};
+use bson::{
+    document::ValueAccessError,
+    oid,
+    spec::{BinarySubtype, ElementType},
+    Bson, Document, JavaScriptCodeWithScope, Regex, Timestamp,
+};
 
 use bson::decimal128::Decimal128;
 
+pub mod de;
 #[cfg(test)]
 mod props;
 
@@ -122,16 +128,16 @@ impl RawBsonDocBuf {
         self.as_ref().get_bool(key)
     }
 
-    pub fn get_utc_date_time(&self, key: &str) -> OptResult<DateTime<Utc>> {
-        self.as_ref().get_utc_date_time(key)
+    pub fn get_datetime(&self, key: &str) -> OptResult<DateTime<Utc>> {
+        self.as_ref().get_datetime(key)
     }
 
     pub fn get_null(&self, key: &str) -> OptResult<()> {
         self.as_ref().get_null(key)
     }
 
-    pub fn get_regexp<'a>(&'a self, key: &str) -> OptResult<RawBsonRegexp<'a>> {
-        self.as_ref().get_regexp(key)
+    pub fn get_regex<'a>(&'a self, key: &str) -> OptResult<RawBsonRegex<'a>> {
+        self.as_ref().get_regex(key)
     }
 
     pub fn get_javascript<'a>(&'a self, key: &str) -> OptResult<&'a str> {
@@ -169,7 +175,6 @@ impl RawBsonDocBuf {
         &self.data
     }
 }
-
 
 impl TryFrom<RawBsonDocBuf> for bson::Document {
     type Error = RawError;
@@ -228,9 +233,7 @@ impl<'a> RawBsonDoc<'a> {
     }
 
     fn get_with<T>(self, key: &str, f: impl FnOnce(RawBson<'a>) -> RawResult<T>) -> OptResult<T> {
-        self.get(key)?
-            .map(f)
-            .transpose()
+        self.get(key)?.map(f).transpose()
     }
     pub fn get_f64(self, key: &str) -> OptResult<f64> {
         self.get_with(key, RawBson::as_f64)
@@ -260,16 +263,16 @@ impl<'a> RawBsonDoc<'a> {
         self.get_with(key, RawBson::as_bool)
     }
 
-    pub fn get_utc_date_time(self, key: &str) -> OptResult<DateTime<Utc>> {
-        self.get_with(key, RawBson::as_utc_date_time)
+    pub fn get_datetime(self, key: &str) -> OptResult<DateTime<Utc>> {
+        self.get_with(key, RawBson::as_datetime)
     }
 
     pub fn get_null(self, key: &str) -> OptResult<()> {
         self.get_with(key, RawBson::as_null)
     }
 
-    pub fn get_regexp(self, key: &str) -> OptResult<RawBsonRegexp<'a>> {
-        self.get_with(key, RawBson::as_regexp)
+    pub fn get_regex(self, key: &str) -> OptResult<RawBsonRegex<'a>> {
+        self.get_with(key, RawBson::as_regex)
     }
 
     pub fn get_javascript(self, key: &str) -> OptResult<&'a str> {
@@ -474,7 +477,11 @@ impl<'a> RawBsonArray<'a> {
         self.into_iter().nth(index).transpose()
     }
 
-    fn get_with<T>(self, index: usize, f: impl FnOnce(RawBson<'a>) -> RawResult<T>) -> OptResult<T> {
+    fn get_with<T>(
+        self,
+        index: usize,
+        f: impl FnOnce(RawBson<'a>) -> RawResult<T>,
+    ) -> OptResult<T> {
         self.get(index)?.map(f).transpose()
     }
 
@@ -506,16 +513,16 @@ impl<'a> RawBsonArray<'a> {
         self.get_with(index, RawBson::as_bool)
     }
 
-    pub fn get_utc_date_time(self, index: usize) -> OptResult<DateTime<Utc>> {
-        self.get_with(index, RawBson::as_utc_date_time)
+    pub fn get_datetime(self, index: usize) -> OptResult<DateTime<Utc>> {
+        self.get_with(index, RawBson::as_datetime)
     }
 
     pub fn get_null(self, index: usize) -> OptResult<()> {
         self.get_with(index, RawBson::as_null)
     }
 
-    pub fn get_regexp(self, index: usize) -> OptResult<RawBsonRegexp<'a>> {
-        self.get_with(index, RawBson::as_regexp)
+    pub fn get_regex(self, index: usize) -> OptResult<RawBsonRegex<'a>> {
+        self.get_with(index, RawBson::as_regex)
     }
 
     pub fn get_javascript(self, index: usize) -> OptResult<&'a str> {
@@ -627,17 +634,17 @@ impl<'a> RawBsonBinary<'a> {
 }
 
 #[derive(Clone, Copy)]
-pub struct RawBsonRegexp<'a> {
+pub struct RawBsonRegex<'a> {
     pattern: &'a str,
     options: &'a str,
 }
 
-impl<'a> RawBsonRegexp<'a> {
-    pub fn new(data: &'a [u8]) -> RawResult<RawBsonRegexp<'a>> {
+impl<'a> RawBsonRegex<'a> {
+    pub fn new(data: &'a [u8]) -> RawResult<RawBsonRegex<'a>> {
         let pattern = read_nullterminated(data)?;
         let opts = read_nullterminated(&data[pattern.len() + 1..])?;
         if pattern.len() + opts.len() == data.len() - 2 {
-            Ok(RawBsonRegexp {
+            Ok(RawBsonRegex {
                 pattern,
                 options: opts,
             })
@@ -795,7 +802,7 @@ impl<'a> RawBson<'a> {
         }
     }
 
-    pub fn as_utc_date_time(self) -> RawResult<DateTime<Utc>> {
+    pub fn as_datetime(self) -> RawResult<DateTime<Utc>> {
         if let ElementType::DateTime = self.element_type {
             let millis = i64_from_slice(self.data);
             if millis >= 0 {
@@ -828,9 +835,9 @@ impl<'a> RawBson<'a> {
         }
     }
 
-    pub fn as_regexp(self) -> RawResult<RawBsonRegexp<'a>> {
+    pub fn as_regex(self) -> RawResult<RawBsonRegex<'a>> {
         if let ElementType::RegularExpression = self.element_type {
-            RawBsonRegexp::new(self.data)
+            RawBsonRegex::new(self.data)
         } else {
             Err(RawError::UnexpectedType)
         }
@@ -936,10 +943,10 @@ impl<'a> TryFrom<RawBson<'a>> for Bson {
             }
             ElementType::ObjectId => Bson::ObjectId(rawbson.as_object_id()?),
             ElementType::Boolean => Bson::Boolean(rawbson.as_bool()?),
-            ElementType::DateTime => Bson::DateTime(rawbson.as_utc_date_time()?),
+            ElementType::DateTime => Bson::DateTime(rawbson.as_datetime()?),
             ElementType::Null => Bson::Null,
             ElementType::RegularExpression => {
-                let rawregex = rawbson.as_regexp()?;
+                let rawregex = rawbson.as_regex()?;
                 Bson::RegularExpression(Regex {
                     pattern: String::from(rawregex.pattern),
                     options: String::from(rawregex.options),
@@ -1049,7 +1056,10 @@ mod tests {
             "something": "else",
         });
         let rawdoc = RawBsonDoc::new(&docbytes).unwrap();
-        assert_eq!(rawdoc.get("that").unwrap().unwrap().as_str().unwrap(), "second",);
+        assert_eq!(
+            rawdoc.get("that").unwrap().unwrap().as_str().unwrap(),
+            "second",
+        );
     }
 
     #[test]
@@ -1222,7 +1232,6 @@ mod tests {
         let boolean = rawdoc
             .get("boolean")
             .expect("error finding key boolean")
-
             .expect("no key boolean")
             .as_bool()
             .expect("result was not boolean");
@@ -1239,9 +1248,8 @@ mod tests {
         let datetime = rawdoc
             .get("datetime")
             .expect("error finding key datetime")
-
             .expect("no key datetime")
-            .as_utc_date_time()
+            .as_datetime()
             .expect("result was not datetime");
         assert_eq!(datetime.to_rfc3339(), "2000-10-31T12:30:45+00:00");
     }
@@ -1254,7 +1262,6 @@ mod tests {
         let () = rawdoc
             .get("null")
             .expect("error finding key null")
-
             .expect("no key null")
             .as_null()
             .expect("was not null");
@@ -1268,9 +1275,8 @@ mod tests {
         let regex = rawdoc
             .get("regex")
             .expect("error finding key regex")
-
             .expect("no key regex")
-            .as_regexp()
+            .as_regex()
             .expect("was not regex");
         assert_eq!(regex.pattern, r"end\s*$");
         assert_eq!(regex.options, "i");
@@ -1283,7 +1289,6 @@ mod tests {
         let js = rawdoc
             .get("javascript")
             .expect("error finding key javascript")
-
             .expect("no key javascript")
             .as_javascript()
             .expect("was not javascript");
@@ -1299,7 +1304,6 @@ mod tests {
         let symbol = rawdoc
             .get("symbol")
             .expect("error finding key symbol")
-
             .expect("no key symbol")
             .as_symbol()
             .expect("was not symbol");
@@ -1314,7 +1318,6 @@ mod tests {
         let (js, scopedoc) = rawdoc
             .get("javascript_with_scope")
             .expect("error finding key javascript_with_scope")
-
             .expect("no key javascript_with_scope")
             .as_javascript_with_scope()
             .expect("was not javascript with scope");
@@ -1337,7 +1340,6 @@ mod tests {
         let int32 = rawdoc
             .get("int32")
             .expect("error finding key int32")
-
             .expect("no key int32")
             .as_i32()
             .expect("was not int32");
@@ -1352,7 +1354,6 @@ mod tests {
         let ts = rawdoc
             .get("timestamp")
             .expect("error finding key timestamp")
-
             .expect("no key timestamp")
             .as_timestamp()
             .expect("was not a timestamp");

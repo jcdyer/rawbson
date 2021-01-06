@@ -2,24 +2,24 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::raw::RawBsonRegexp;
+use crate::RawBsonRegex;
 
-pub static NAME: &str = "$__bson_Regexp";
+pub static NAME: &str = "$__bson_Regex";
 pub static REGEXP_FIELD: &str = "$__bson_regexp_regexp";
 pub static OPTIONS_FIELD: &str = "$__bson_regexp_options";
-pub static FIELDS: &'static [&'static str] = &[REGEXP_FIELD, OPTIONS_FIELD];
+pub static FIELDS: & [&str] = &[REGEXP_FIELD, OPTIONS_FIELD];
 
-struct RegexpKeyDeserializer {
+struct RegexKeyDeserializer {
     key: &'static str,
 }
 
-impl RegexpKeyDeserializer {
-    fn new(key: &'static str) -> RegexpKeyDeserializer {
-        RegexpKeyDeserializer { key }
+impl RegexKeyDeserializer {
+    fn new(key: &'static str) -> RegexKeyDeserializer {
+        RegexKeyDeserializer { key }
     }
 }
 
-impl<'de> Deserializer<'de> for RegexpKeyDeserializer {
+impl<'de> Deserializer<'de> for RegexKeyDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -36,21 +36,21 @@ impl<'de> Deserializer<'de> for RegexpKeyDeserializer {
     );
 }
 
-pub(super) struct RegexpDeserializer<'de> {
-    data: RawBsonRegexp<'de>,
+pub(super) struct RegexDeserializer<'de> {
+    data: RawBsonRegex<'de>,
     visiting: Visiting,
 }
 
-impl<'de> RegexpDeserializer<'de> {
-    pub(super) fn new(data: RawBsonRegexp<'de>) -> RegexpDeserializer<'de> {
-        RegexpDeserializer {
+impl<'de> RegexDeserializer<'de> {
+    pub(super) fn new(data: RawBsonRegex<'de>) -> RegexDeserializer<'de> {
+        RegexDeserializer {
             data,
-            visiting: Visiting::Regexp,
+            visiting: Visiting::Regex,
         }
     }
 }
 
-impl<'de> Deserializer<'de> for RegexpDeserializer<'de> {
+impl<'de> Deserializer<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -103,12 +103,12 @@ impl<'de> Deserializer<'de> for RegexpDeserializer<'de> {
 }
 
 enum Visiting {
-    Regexp,
+    Regex,
     Options,
     Done,
 }
 
-impl<'de> SeqAccess<'de> for RegexpDeserializer<'de> {
+impl<'de> SeqAccess<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn next_element_seed<E>(&mut self, seed: E) -> Result<Option<E::Value>, Error>
@@ -116,14 +116,14 @@ impl<'de> SeqAccess<'de> for RegexpDeserializer<'de> {
             E: DeserializeSeed<'de>,
     {
         match self.visiting {
-            Visiting::Regexp => {
+            Visiting::Regex => {
                 self.visiting = Visiting::Options;
-                seed.deserialize(RegexpFieldDeserializer::new(self.data.pattern()))
+                seed.deserialize(RegexFieldDeserializer::new(self.data.pattern()))
                     .map(Some)
             }
             Visiting::Options => {
                 self.visiting = Visiting::Done;
-                seed.deserialize(RegexpFieldDeserializer::new(self.data.options()))
+                seed.deserialize(RegexFieldDeserializer::new(self.data.options()))
                     .map(Some)
             }
             Visiting::Done => Ok(None),
@@ -131,7 +131,7 @@ impl<'de> SeqAccess<'de> for RegexpDeserializer<'de> {
     }
 }
 
-impl<'de> MapAccess<'de> for RegexpDeserializer<'de> {
+impl<'de> MapAccess<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
@@ -139,8 +139,8 @@ impl<'de> MapAccess<'de> for RegexpDeserializer<'de> {
             K: DeserializeSeed<'de>,
     {
         match self.visiting {
-            Visiting::Regexp => seed.deserialize(RegexpKeyDeserializer::new(REGEXP_FIELD)).map(Some),
-            Visiting::Options => seed.deserialize(RegexpKeyDeserializer::new(OPTIONS_FIELD)).map(Some),
+            Visiting::Regex => seed.deserialize(RegexKeyDeserializer::new(REGEXP_FIELD)).map(Some),
+            Visiting::Options => seed.deserialize(RegexKeyDeserializer::new(OPTIONS_FIELD)).map(Some),
             Visiting::Done => Ok(None),
         }
     }
@@ -150,30 +150,30 @@ impl<'de> MapAccess<'de> for RegexpDeserializer<'de> {
             V: DeserializeSeed<'de>,
     {
         match self.visiting {
-            Visiting::Regexp => {
+            Visiting::Regex => {
                 self.visiting = Visiting::Options;
-                seed.deserialize(RegexpFieldDeserializer::new(self.data.pattern()))
+                seed.deserialize(RegexFieldDeserializer::new(self.data.pattern()))
             }
             Visiting::Options => {
                 self.visiting = Visiting::Done;
-                seed.deserialize(RegexpFieldDeserializer::new(self.data.options()))
+                seed.deserialize(RegexFieldDeserializer::new(self.data.options()))
             }
             Visiting::Done => Err(Error::MalformedDocument),
         }
     }
 }
 
-struct RegexpFieldDeserializer<'de> {
+struct RegexFieldDeserializer<'de> {
     data: &'de str,
 }
 
-impl<'de> RegexpFieldDeserializer<'de> {
-    fn new(data: &'de str) -> RegexpFieldDeserializer<'de> {
-        RegexpFieldDeserializer { data }
+impl<'de> RegexFieldDeserializer<'de> {
+    fn new(data: &'de str) -> RegexFieldDeserializer<'de> {
+        RegexFieldDeserializer { data }
     }
 }
 
-impl<'de> Deserializer<'de> for RegexpFieldDeserializer<'de> {
+impl<'de> Deserializer<'de> for RegexFieldDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>

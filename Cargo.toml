@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 bson = {version = "1.1", features = ["decimal128"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 proptest = "0.10"
 decimal = "2.0.4"
+serde = { version = "1.0.118", features = ["derive"] }

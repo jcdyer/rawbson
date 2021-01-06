@@ -7,7 +7,7 @@ use super::Error;
 
 pub static NAME: &str = "$__bson_UtcDateTime";
 pub static FIELD: &str = "$__bson_utcdatetime";
-pub static FIELDS: &'static [&'static str] = &[FIELD];
+pub static FIELDS: &[&str] = &[FIELD];
 
 struct UtcDateTimeKeyDeserializer {
     key: &'static str,
@@ -43,7 +43,10 @@ pub struct UtcDateTimeDeserializer {
 
 impl UtcDateTimeDeserializer {
     pub fn new(data: i64) -> UtcDateTimeDeserializer {
-        UtcDateTimeDeserializer { data, visited: false }
+        UtcDateTimeDeserializer {
+            data,
+            visited: false,
+        }
     }
 }
 
@@ -103,7 +106,9 @@ impl<'de> MapAccess<'de> for UtcDateTimeDeserializer {
         K: DeserializeSeed<'de>,
     {
         match self.visited {
-            false => seed.deserialize(UtcDateTimeKeyDeserializer::new(FIELD)).map(Some),
+            false => seed
+                .deserialize(UtcDateTimeKeyDeserializer::new(FIELD))
+                .map(Some),
             true => Ok(None),
         }
     }

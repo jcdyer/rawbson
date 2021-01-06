@@ -3,14 +3,14 @@ use serde::forward_to_deserialize_any;
 
 use super::Error;
 use crate::de::BsonDeserializer;
-use crate::raw::RawBsonDoc;
+use crate::RawBsonDoc;
 
 pub static NAME: &str = "$__bson_JavaScript";
 pub static WITH_SCOPE_NAME: &str = "$__bson_JavaScriptWithScope";
 pub static DATA_FIELD: &str = "$__bson_javascript_data";
 pub static SCOPE_FIELD: &str = "$__bson_javascript_scope";
-pub static FIELDS: &'static [&'static str] = &[DATA_FIELD];
-pub static WITH_SCOPE_FIELDS: &'static [&'static str] = &[DATA_FIELD, SCOPE_FIELD];
+pub static FIELDS: &[&str] = &[DATA_FIELD];
+pub static WITH_SCOPE_FIELDS: &[&str] = &[DATA_FIELD, SCOPE_FIELD];
 
 struct JavaScriptKeyDeserializer {
     key: &'static str,

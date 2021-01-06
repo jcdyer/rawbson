@@ -4,10 +4,10 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::raw::RawBson;
-use crate::spec::ElementType;
+use crate::RawBson;
+use bson::spec::ElementType;
 
-pub static FIELD: &str = "$__bson_object_id";
+pub static FIELD: &str = "$oid";
 pub static FIELDS: &[&str] = &[FIELD];
 pub static NAME: &str = "$__bson_ObjectId";
 
@@ -121,7 +121,10 @@ impl<'de> Deserializer<'de> for ObjectIdValueDeserializer<'de> {
         V: Visitor<'de>,
     {
         match self.0.element_type() {
-            ElementType::ObjectId => visitor.visit_borrowed_bytes(self.0.as_bytes()),
+            ElementType::ObjectId => {
+                let hex = self.0.as_object_id()?.to_hex();
+                visitor.visit_string(hex)
+            }
             _ => Err(Error::MalformedDocument),
         }
     }
@@ -132,3 +135,5 @@ impl<'de> Deserializer<'de> for ObjectIdValueDeserializer<'de> {
         ignored_any unit_struct tuple_struct tuple enum identifier
     );
 }
+
+impl<'de>
