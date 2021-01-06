@@ -5,21 +5,21 @@ use serde::forward_to_deserialize_any;
 
 use super::Error;
 
-pub static NAME: &str = "$__bson_UtcDateTime";
-pub static FIELD: &str = "$__bson_utcdatetime";
+pub static NAME: &str = "$__bson_DateTime";
+pub static FIELD: &str = "$date";
 pub static FIELDS: &[&str] = &[FIELD];
 
-struct UtcDateTimeKeyDeserializer {
+struct DateTimeKeyDeserializer {
     key: &'static str,
 }
 
-impl UtcDateTimeKeyDeserializer {
-    fn new(key: &'static str) -> UtcDateTimeKeyDeserializer {
-        UtcDateTimeKeyDeserializer { key }
+impl DateTimeKeyDeserializer {
+    fn new(key: &'static str) -> DateTimeKeyDeserializer {
+        DateTimeKeyDeserializer { key }
     }
 }
 
-impl<'de> Deserializer<'de> for UtcDateTimeKeyDeserializer {
+impl<'de> Deserializer<'de> for DateTimeKeyDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -36,21 +36,21 @@ impl<'de> Deserializer<'de> for UtcDateTimeKeyDeserializer {
     );
 }
 
-pub struct UtcDateTimeDeserializer {
+pub struct DateTimeDeserializer {
     data: i64,
     visited: bool,
 }
 
-impl UtcDateTimeDeserializer {
-    pub fn new(data: i64) -> UtcDateTimeDeserializer {
-        UtcDateTimeDeserializer {
+impl DateTimeDeserializer {
+    pub fn new(data: i64) -> DateTimeDeserializer {
+        DateTimeDeserializer {
             data,
             visited: false,
         }
     }
 }
 
-impl<'de> Deserializer<'de> for UtcDateTimeDeserializer {
+impl<'de> Deserializer<'de> for DateTimeDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
@@ -98,7 +98,7 @@ impl<'de> Deserializer<'de> for UtcDateTimeDeserializer {
     );
 }
 
-impl<'de> MapAccess<'de> for UtcDateTimeDeserializer {
+impl<'de> MapAccess<'de> for DateTimeDeserializer {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
@@ -107,7 +107,7 @@ impl<'de> MapAccess<'de> for UtcDateTimeDeserializer {
     {
         match self.visited {
             false => seed
-                .deserialize(UtcDateTimeKeyDeserializer::new(FIELD))
+                .deserialize(DateTimeKeyDeserializer::new(FIELD))
                 .map(Some),
             true => Ok(None),
         }
@@ -120,24 +120,24 @@ impl<'de> MapAccess<'de> for UtcDateTimeDeserializer {
         match self.visited {
             false => {
                 self.visited = true;
-                seed.deserialize(UtcDateTimeFieldDeserializer::new(self.data))
+                seed.deserialize(DateTimeFieldDeserializer::new(self.data))
             }
             true => Err(Error::MalformedDocument),
         }
     }
 }
 
-struct UtcDateTimeFieldDeserializer {
+struct DateTimeFieldDeserializer {
     data: i64,
 }
 
-impl<'de> UtcDateTimeFieldDeserializer {
-    fn new(data: i64) -> UtcDateTimeFieldDeserializer {
-        UtcDateTimeFieldDeserializer { data }
+impl<'de> DateTimeFieldDeserializer {
+    fn new(data: i64) -> DateTimeFieldDeserializer {
+        DateTimeFieldDeserializer { data }
     }
 }
 
-impl<'de> Deserializer<'de> for UtcDateTimeFieldDeserializer {
+impl<'de> Deserializer<'de> for DateTimeFieldDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>

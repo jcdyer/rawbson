@@ -9,13 +9,13 @@ use std::num::TryFromIntError;
 use crate::{RawBson, RawBsonArrayIterator, RawBsonDoc, RawBsonDocBuf, RawBsonDocIterator, RawError};
 use bson::spec::ElementType;
 
-use self::object_id::RawObjectIdDeserializer;
+use object_id::RawObjectIdDeserializer;
 
 pub mod binary;
 pub mod js;
 pub mod object_id;
 pub mod regex;
-pub mod utc_datetime;
+pub mod datetime;
 
 #[derive(Debug)]
 pub enum Error {
@@ -113,7 +113,7 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
             }
             ElementType::Boolean => self.deserialize_bool(visitor),
             ElementType::DateTime => {
-                self.deserialize_struct(utc_datetime::NAME, utc_datetime::FIELDS, visitor)
+                self.deserialize_struct(datetime::NAME, datetime::FIELDS, visitor)
             }
             ElementType::Null => self.deserialize_unit(visitor),
             ElementType::DbPointer => Err(Error::Unimplemented), // deserialize (&str, ObjectId), or struct
@@ -462,12 +462,12 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
                 .map_err(Error::from)
                 .map(binary::BinaryDeserializer::new)
                 .and_then(|de| de.deserialize_struct(name, fields, visitor))
-        } else if name == utc_datetime::NAME {
+        } else if name == datetime::NAME {
             self.bson
                 .as_datetime()
                 .map_err(Error::from)
                 .map(|dt| dt.timestamp_millis())
-                .map(utc_datetime::UtcDateTimeDeserializer::new)
+                .map(datetime::DateTimeDeserializer::new)
                 .and_then(|de| de.deserialize_struct(name, fields, visitor))
         } else if name == js::WITH_SCOPE_NAME {
             self.bson
@@ -834,7 +834,7 @@ mod tests {
             "first_name": "Edward",
             "middle_name": Bson::Null,
             "last_name": "Teach",
-            "number": Binary { subtype: BinarySubtype::BinaryOld, bytes: vec![7, 0, 0, 0, 8, 6, 7, 5, 3, 0, 9] },
+            "number": Binary { subtype: BinarySubtype::Generic, bytes: vec![8, 6, 7, 5, 3, 0, 9] },
             "has_cookies": false,
             "gid": Binary { subtype: BinarySubtype::Uuid, bytes: b"12345678901234567890123456789012".to_vec() },
             "birth_year": 15.0,
@@ -856,21 +856,19 @@ mod tests {
     }
 
     #[test]
-    fn oid_three_ways() {
+    fn object_id() {
+        let object_id = ObjectId::new();
         let doc = doc! {
-            "oid": ObjectId::with_string("abcdefabcdefabcdefabcdef").unwrap(),
+            "oid": object_id.clone(),
         };
         let mut docbytes = Vec::new();
         doc.to_writer(&mut docbytes).expect("cannot serialize document");
-        let objecty: HashMap<String, ObjectId> = from_bytes(&docbytes).expect("deserialize object_id");
-        println!("{:?}", objecty);
-        let stringy: HashMap<String, String> = from_bytes(&docbytes).expect("deserialize string");
-        println!("{:?}", stringy);
-        let borrowed_bytey: HashMap<String, &[u8]> = from_bytes(&docbytes).expect("deserialize borrowed bytes");
-        println!("{:?}", borrowed_bytey);
-        let bytey: HashMap<String, Vec<u8>> = from_bytes(&docbytes).expect("deserialize bytes");
-        println!("{:?}", bytey);
-        panic!("success");
+        let as_object: HashMap<String, ObjectId> = from_bytes(&docbytes).expect("deserialize object_id");
+        assert_eq!(as_object.get("oid").unwrap(), &object_id);
+        let as_string: HashMap<String, String> = from_bytes(&docbytes).expect("deserialize string");
+        assert_eq!(as_string.get("oid").unwrap(), &object_id.to_hex());
+        let as_bytes: HashMap<String, &[u8]> = from_bytes(&docbytes).expect("deserialize borrowed bytes");
+        assert_eq!(as_bytes.get("oid").unwrap(), &object_id.bytes());
     }
 
     #[test]
