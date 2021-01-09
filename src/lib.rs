@@ -13,6 +13,7 @@ use bson::{
 use bson::decimal128::Decimal128;
 
 pub mod de;
+
 #[cfg(test)]
 mod props;
 
