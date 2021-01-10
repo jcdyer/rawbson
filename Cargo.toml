@@ -2,12 +2,14 @@
 name = "rawbson"
 version = "0.1.0"
 authors = ["J. Cliff Dyer <jcd@sdf.org>"]
-description = "Blazing fast BSON data access"
+description = "Blazing fast zero-copy BSON handling"
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/jcdyer/rawbson"
+repository = "https://github.com/jcdyer/rawbson"
 documentation = "https://docs.rs/crate/rawbson"
 edition = "2018"
+keywords = ["serde", "bson", "mongodb", "serialization"]
 
 [[bench]]
 name = "rawbson"
