@@ -1,3 +1,142 @@
+/*!
+A rawbson document can be created from a `Vec<u8>` containing raw BSON data, and elements
+accessed via methods similar to those in the [bson-rust](https://crates.io/crate/bson-rust)
+crate.  Note that rawbson returns a Result<Option<T>>, since the bytes contained in the
+document are not fully validated until trying to access the contained data.
+
+```rust
+use rawbson::{
+    DocBuf,
+    elem,
+};
+
+// \x16\x00\x00\x00                   // total document size
+// \x02                               // 0x02 = type String
+// hello\x00                          // field name
+// \x06\x00\x00\x00world\x00          // field value
+// \x00
+
+let doc = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+let elem: Option<elem::Element> = doc.get("hello")?;
+assert_eq!(
+    elem.unwrap().as_str()?,
+    "world",
+);
+# Ok::<(), rawbson::RawError>(())
+```
+
+### bson-rust interop
+
+This crate is designed to interoperate smoothly with the bson crate.
+
+A [`DocBuf`] can be created from a [`bson::document::Document`].  Internally, this
+serializes the `Document` to a `Vec<u8>`, and then includes those bytes in the [`DocBuf`].
+
+```rust
+use bson::doc;
+use rawbson::{
+    DocBuf,
+};
+
+let document = doc!{"goodbye": {"cruel": "world"}};
+let raw = DocBuf::from_document(&document);
+let value: Option<&str> = raw.get_document("goodbye")?
+    .map(|docref| docref.get_str("cruel"))
+    .transpose()?
+    .flatten();
+
+assert_eq!(
+    value,
+    Some("world"),
+);
+# Ok::<(), rawbson::RawError>(())
+```
+
+### Reference types
+
+A BSON document can also be accessed with the [`DocRef<'a>`] reference type,
+which stores a reference to the BSON payload as a `&'a [u8]`.  This allows
+accessing nested documents without reallocation.  This type will probably be
+replacedby an unsized type analogous to `[u8]` or `str` before 1.0.  That
+type will be called `Doc`, and will coexist with DocRef for at least one
+minor release.
+
+The below example performs no allocation.
+
+```rust
+use rawbson::DocRef;
+
+let bytes = b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00";
+assert_eq!(DocRef::new(bytes)?.get_str("hello")?, Some("world"));
+# Ok::<(), rawbson::RawError>(())
+```
+
+### Iteration
+
+[`DocRef`] supports iteration, which can also be accessed via
+[`DocBuf::iter`].
+
+```rust
+use bson::doc;
+use rawbson::{DocBuf, elem::Element};
+
+let doc = DocBuf::from_document(&doc! {"crate": "rawbson", "license": "MIT"});
+let mut dociter = doc.iter();
+
+let (key, value): (&str, Element) = dociter.next().unwrap()?;
+assert_eq!(key, "crate");
+assert_eq!(value.as_str()?, "rawbson");
+
+let (key, value): (&str, Element) = dociter.next().unwrap()?;
+assert_eq!(key, "license");
+assert_eq!(value.as_str()?, "MIT");
+# Ok::<(), rawbson::RawError>(())
+```
+
+### serde support
+
+There is also serde deserialization support.
+
+Serde serialization support is not yet provided.  For now, use
+[`bson::to_document`] instead, and then write it out using
+[`bson::Document::to_writer`] or [`DocBuf::from_document`].
+
+```rust
+use serde::Deserialize;
+use bson::{doc, Document, oid::ObjectId, DateTime};
+use rawbson::{DocBuf, de::from_docbuf};
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct User {
+    #[serde(rename = "_id")]
+    id: ObjectId,
+    first_name: String,
+    last_name: String,
+    birthdate: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(flatten)]
+    extra: Document,
+}
+
+let doc = DocBuf::from_document(&doc!{
+    "_id": ObjectId::with_string("543254325432543254325432")?,
+    "firstName": "John",
+    "lastName": "Doe",
+    "birthdate": null,
+    "luckyNumbers": [3, 60, 2147483647],
+    "nickname": "Red",
+});
+
+let user: User = from_docbuf(&doc)?;
+assert_eq!(user.id.to_hex(), "543254325432543254325432");
+assert_eq!(user.first_name, "John");
+assert_eq!(user.last_name, "Doe");
+assert_eq!(user.extra.get_str("nickname")?, "Red");
+assert!(user.birthdate.is_none());
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+*/
+
 use std::convert::{TryFrom, TryInto};
 
 use chrono::{DateTime, Utc};
@@ -25,7 +164,7 @@ pub enum RawError {
     Utf8EncodingError(Vec<u8>),
 }
 
-type RawResult<T> = Result<T, RawError>;
+pub type RawResult<T> = Result<T, RawError>;
 type OptResult<T> = RawResult<Option<T>>;
 
 impl<'a> From<RawError> for ValueAccessError {
@@ -47,6 +186,7 @@ impl<'a> From<ValueAccessError> for RawError {
         }
     }
 }
+
 
 #[derive(Clone)]
 pub struct DocBuf {
@@ -88,6 +228,10 @@ impl DocBuf {
     /// The provided bytes must be a valid bson document
     pub unsafe fn new_unchecked(data: Vec<u8>) -> DocBuf {
         DocBuf { data }
+    }
+
+    pub fn iter(&self) -> DocIter<'_> {
+        self.into_iter()
     }
 
     pub fn get<'a>(&'a self, key: &str) -> OptResult<elem::Element<'a>> {

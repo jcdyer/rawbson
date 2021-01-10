@@ -74,14 +74,14 @@ impl<'de> BsonDeserializer<'de> {
     }
 }
 
-pub fn from_rawdoc_buf<'de, T>(rawdoc_buf: &'de DocBuf) -> Result<T, crate::de::Error>
+pub fn from_docbuf<'de, T>(rawdoc_buf: &'de DocBuf) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
 {
-    from_rawdoc(rawdoc_buf.as_docref())
+    from_docref(rawdoc_buf.as_docref())
 }
 
-pub fn from_rawdoc<'de, T>(rawdoc: DocRef<'de>) -> Result<T, crate::de::Error>
+pub fn from_docref<'de, T>(rawdoc: DocRef<'de>) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
 {
@@ -94,7 +94,7 @@ where
     T: Deserialize<'de>,
 {
     let raw_document = DocRef::new(data)?;
-    from_rawdoc(raw_document)
+    from_docref(raw_document)
 }
 
 impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
@@ -605,7 +605,7 @@ mod tests {
 
     use serde::Deserialize;
 
-    use super::{from_bytes, from_rawdoc};
+    use super::{from_bytes, from_docref};
     //use crate::decoder::from_rawdoc;
     use crate::{DocBuf, DocRef};
     use chrono::Utc;
@@ -944,7 +944,7 @@ mod tests {
         let rawdoc = DocRef::new(&docbytes).expect("Invalid document");
         assert!(rawdoc.get_javascript_with_scope("js_with_scope").is_ok());
         let map: HashMap<&str, (&str, HashMap<&str, &str>)> =
-            from_rawdoc(rawdoc).expect("could not decode js with scope");
+            from_docref(rawdoc).expect("could not decode js with scope");
         assert_eq!(
             map.get("js_with_scope").expect("no key js_with_scope").0,
             "console.log(value);"
@@ -967,7 +967,7 @@ mod tests {
             .expect("could not encode document");
         let rawdoc = DocRef::new(&docbytes).expect("Invalid document");
         assert!(rawdoc.get_regex("regex").is_ok());
-        let map: HashMap<&str, (&str, &str)> = from_rawdoc(rawdoc).expect("could not decode regex");
+        let map: HashMap<&str, (&str, &str)> = from_docref(rawdoc).expect("could not decode regex");
         assert_eq!(map.get("regex").expect("no key regex").0, "^_id$");
         assert_eq!(map.get("regex").expect("no key regex").1, "i");
     }
@@ -986,7 +986,7 @@ mod tests {
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let value: Dateish =
-            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
+            from_docref(rawdoc.as_docref()).expect("could not decode utc_datetime");
         let elapsed = Utc::now().signed_duration_since(value.utc_datetime);
         // The previous now was less than half a second ago
         assert!(elapsed.num_milliseconds() >= 0);
@@ -1002,7 +1002,7 @@ mod tests {
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, DateTime> =
-            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
+            from_docref(rawdoc.as_docref()).expect("could not decode utc_datetime");
 
         let dt = map.get("utc_datetime").expect("no key utc_datetime");
         println!("{:?}", dt);
@@ -1022,7 +1022,7 @@ mod tests {
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_object_id("object_id").is_ok());
         let map: HashMap<&str, Bson> =
-            from_rawdoc(rawdoc.as_docref()).expect("could not decode object_id");
+            from_docref(rawdoc.as_docref()).expect("could not decode object_id");
         assert_eq!(
             map.get("object_id").unwrap(),
             &Bson::ObjectId(ObjectId::with_string("123456123456123456123456").unwrap())
@@ -1038,7 +1038,7 @@ mod tests {
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, Bson> =
-            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
+            from_docref(rawdoc.as_docref()).expect("could not decode utc_datetime");
 
         let dt = map.get("utc_datetime").expect("no key utc_datetime");
         let dt = dt
@@ -1059,7 +1059,7 @@ mod tests {
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, i64> =
-            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime as i64");
+            from_docref(rawdoc.as_docref()).expect("could not decode utc_datetime as i64");
         let _time = map.get("utc_datetime").expect("no key utc_datetime");
     }
 }
