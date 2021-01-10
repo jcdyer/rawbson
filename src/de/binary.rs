@@ -2,7 +2,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::RawBsonBinary;
+use crate::elem::RawBsonBinary;
 use bson::spec::BinarySubtype;
 
 pub static SUBTYPE_FIELD: &str = "$__bson_binary_subtype";

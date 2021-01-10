@@ -1,6 +1,6 @@
 use bson::doc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rawbson::RawBsonDocBuf;
+use rawbson::DocBuf;
 use std::convert::TryInto;
 use std::io::{Cursor, Read};
 
@@ -26,7 +26,7 @@ fn construct_broad_doc(size: usize) -> bson::Document {
 /// This benchmark starts from a Vec<u8> of bytes in bson format, and
 /// then times the following steps:
 /// 1.  Constructing the type (bson::Bson, for parsed,
-///     rawbson::RawBsonDocBuf for raw).
+///     rawbson::DocumentBuf for raw).
 /// 2.  Unwrapping the layers of the document in a while let loop
 /// 3.  Accessing the element, converting it to an i64 and uwrapping
 ///     the result.
@@ -45,8 +45,8 @@ fn access_deep_from_bytes(c: &mut Criterion) {
                 let mut reader = Cursor::new(inbytes);
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).unwrap();
-                let rawdocbuf = RawBsonDocBuf::new(bytes).expect("invalid document");
-                let mut rawdoc = rawdocbuf.as_ref();
+                let rawdocbuf = DocBuf::new(bytes).expect("invalid document");
+                let mut rawdoc = rawdocbuf.as_docref();
                 while let Ok(Some(val)) = rawdoc.get_document("value") {
                     rawdoc = val;
                 }
@@ -72,7 +72,7 @@ fn access_deep_from_bytes(c: &mut Criterion) {
 /// levels of documents.
 ///
 /// This benchmark starts from an object of the appropriate type (bson::Bson,
-/// for parsed, rawbson::RawBsonDocBuf for raw), and then times the following
+/// for parsed, rawbson::DocumentBuf for raw), and then times the following
 /// steps:
 /// 1.  Unwrapping the layers of the document in a while let loop.
 /// 2.  Accessing the element, converting it to an i64 and uwrapping the
@@ -89,9 +89,9 @@ fn access_deep_from_type(c: &mut Criterion) {
         };
         group.bench_with_input(BenchmarkId::new("raw", depth), &inbytes, |b, inbytes| {
             let bytes = inbytes.clone();
-            let rawdocbuf = RawBsonDocBuf::new(bytes).expect("invalid document");
+            let rawdocbuf = DocBuf::new(bytes).expect("invalid document");
             b.iter(|| {
-                let mut rawdoc = rawdocbuf.as_ref();
+                let mut rawdoc = rawdocbuf.as_docref();
                 while let Ok(Some(val)) = rawdoc.get_document("value") {
                     rawdoc = val;
                 }
@@ -120,13 +120,13 @@ fn access_deep_from_type(c: &mut Criterion) {
 /// In this benchmark, we construct a flat document of 1000 keys, and
 /// adjust the number of elements to fetch from the document.  We always
 /// fetch the last N elements, which are the least performant for a
-/// rawbson::RawBsonDocBuf since we have to iterate through the document
+/// rawbson::DocumentBuf since we have to iterate through the document
 /// to find the relevant keys.
 ///
 /// This benchmark starts from a Vec<u8> of bytes in bson format, and
 /// a list of keys to fetch, and then times the following steps:
 /// 1.  Constructing the type (bson::Bson, for parsed,
-///     rawbson::RawBsonDocBuf for raw).
+///     rawbson::DocumentBuf for raw).
 /// 2.  Looping over the requested N keys
 /// 3.  For each key, accessing the value, converting it to a string
 ///     and unwrapping the result.
@@ -153,7 +153,7 @@ fn access_broad_from_bytes(c: &mut Criterion) {
                     let mut reader = Cursor::new(inbytes);
                     let mut bytes = Vec::new();
                     reader.read_to_end(&mut bytes).unwrap();
-                    let rawdoc = RawBsonDocBuf::new(bytes).expect("invalid document");
+                    let rawdoc = DocBuf::new(bytes).expect("invalid document");
                     for key in keys_to_get {
                         rawdoc.get_str(&key).unwrap();
                     }
@@ -183,11 +183,11 @@ fn access_broad_from_bytes(c: &mut Criterion) {
 /// In this benchmark, we construct a flat document of 1000 keys, and
 /// adjust the number of elements to fetch from the document.  We always
 /// fetch the last N elements, which are the least performant for a
-/// rawbson::RawBsonDocBuf since we have to iterate through the document
+/// rawbson::DocumentBuf since we have to iterate through the document
 /// to find the relevant keys.
 ///
 /// This benchmark starts from an object of the appropriate type (bson::Bson,
-/// for parsed, rawbson::RawBsonDocBuf for raw), and a list of keys to fetch,
+/// for parsed, rawbson::DocumentBuf for raw), and a list of keys to fetch,
 /// and then times the following steps:
 /// 1.  Looping over the requested N keys
 /// 2.  For each key, accessing the value, converting it to a string
@@ -211,7 +211,7 @@ fn access_broad_from_type(c: &mut Criterion) {
             BenchmarkId::new("raw", count),
             &keys_to_get,
             |b, keys_to_get| {
-                let rawdoc = RawBsonDocBuf::new(inbytes.clone()).expect("invalid document");
+                let rawdoc = DocBuf::new(inbytes.clone()).expect("invalid document");
                 b.iter(|| {
                     for key in keys_to_get {
                         rawdoc.get_str(&key).unwrap();
@@ -246,7 +246,7 @@ fn access_broad_from_type(c: &mut Criterion) {
 /// This benchmark starts from a Vec<u8> of bytes in bson format and
 /// then times the following steps:
 /// 1.  Constructing the type (bson::Bson, for parsed,
-///     rawbson::RawBsonDocBuf for raw).
+///     rawbson::DocumentBuf for raw).
 /// 2.  Iterating through the entire document with a for-loop.
 /// 3.  Unwrapping each value
 /// 3.  For each key, accessing the value, converting it to a string
@@ -268,7 +268,7 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
             let mut reader = Cursor::new(inbytes);
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).unwrap();
-            let rawdoc = RawBsonDocBuf::new(bytes).expect("invalid document");
+            let rawdoc = DocBuf::new(bytes).expect("invalid document");
             for result in &rawdoc {
                 if let Ok((key, value)) = result {
                     if let Ok(s) = value.as_str() {
@@ -276,12 +276,11 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
                     } else {
                         eprintln!("raw error in {} {:?}", key, value.element_type());
                     }
-                } else {
-                    if let Err(err) = result {
+                } else if let Err(err) = result {
                         eprintln!("raw error in {:?}", err);
                     }
                 }
-            }
+
             assert_eq!(rawsize, EXPECTEDSIZE);
         })
     });
@@ -310,7 +309,7 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
 /// iterate over the entire document, converting each value to a string.
 ///
 /// This benchmark starts from an object of the appropriate type (bson::Bson,
-/// for parsed, rawbson::RawBsonDocBuf for raw), and then times the following
+/// for parsed, rawbson::DocumentBuf for raw), and then times the following
 /// steps.
 /// 1.  Iterating through the entire document with a for-loop.
 /// 2.  Unwrapping each value
@@ -329,7 +328,7 @@ fn iter_broad_from_type(c: &mut Criterion) {
     let mut rawsize = 0;
     let mut parsedsize = 0;
     group.bench_function("raw", |b| {
-        let rawdoc = RawBsonDocBuf::new(inbytes.clone()).expect("invalid document");
+        let rawdoc = DocBuf::new(inbytes.clone()).expect("invalid document");
         b.iter(|| {
             for result in &rawdoc {
                 let (_key, value) = result.expect("invalid bson");
@@ -376,7 +375,7 @@ fn construct_bson_deep(c: &mut Criterion) {
             let mut reader = Cursor::new(inbytes);
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).unwrap();
-            let rawdoc = RawBsonDocBuf::new(bytes).expect("invalid document");
+            let rawdoc = DocBuf::new(bytes).expect("invalid document");
             let _: bson::Document = rawdoc.try_into().expect("could not convert document");
         })
     });
@@ -404,7 +403,7 @@ fn construct_bson_broad(c: &mut Criterion) {
             let mut reader = Cursor::new(inbytes);
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).unwrap();
-            let rawdoc = RawBsonDocBuf::new(bytes).expect("invalid document");
+            let rawdoc = DocBuf::new(bytes).expect("invalid document");
             let _doc: bson::Document = rawdoc.try_into().expect("invalid document");
         })
     });

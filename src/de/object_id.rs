@@ -4,7 +4,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::RawBson;
+use crate::elem::Element;
 use bson::spec::ElementType;
 
 pub static FIELD: &str = "$oid";
@@ -12,12 +12,12 @@ pub static FIELDS: &[&str] = &[FIELD];
 pub static NAME: &str = "$__bson_ObjectId";
 
 pub struct RawObjectIdDeserializer<'de> {
-    bson: RawBson<'de>,
+    bson: Element<'de>,
     visited: bool,
 }
 
 impl<'de> RawObjectIdDeserializer<'de> {
-    pub fn new(bson: RawBson<'de>) -> RawObjectIdDeserializer<'de> {
+    pub fn new(bson: Element<'de>) -> RawObjectIdDeserializer<'de> {
         RawObjectIdDeserializer { bson, visited: false }
     }
 }
@@ -105,10 +105,10 @@ impl<'de> Deserializer<'de> for ObjectIdKeyDeserializer {
     );
 }
 
-struct ObjectIdValueDeserializer<'de>(RawBson<'de>);
+struct ObjectIdValueDeserializer<'de>(Element<'de>);
 
 impl<'de> ObjectIdValueDeserializer<'de> {
-    fn new(bson: RawBson<'de>) -> ObjectIdValueDeserializer<'de> {
+    fn new(bson: Element<'de>) -> ObjectIdValueDeserializer<'de> {
         ObjectIdValueDeserializer(bson)
     }
 }

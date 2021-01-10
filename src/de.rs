@@ -6,16 +6,16 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 use std::num::TryFromIntError;
 
-use crate::{RawBson, RawBsonArrayIterator, RawBsonDoc, RawBsonDocBuf, RawBsonDocIterator, RawError};
+use crate::{elem::Element, ArrayIter, DocBuf, DocIter, DocRef, RawError};
 use bson::spec::ElementType;
 
 use object_id::RawObjectIdDeserializer;
 
 pub mod binary;
+pub mod datetime;
 pub mod js;
 pub mod object_id;
 pub mod regex;
-pub mod datetime;
 
 #[derive(Debug)]
 pub enum Error {
@@ -61,27 +61,27 @@ impl From<RawError> for Error {
 }
 
 pub struct BsonDeserializer<'de> {
-    bson: RawBson<'de>,
+    bson: Element<'de>,
 }
 
 impl<'de> BsonDeserializer<'de> {
-    pub fn from_rawdoc(doc: RawBsonDoc<'de>) -> Self {
-        BsonDeserializer::from_rawbson(RawBson::new(ElementType::EmbeddedDocument, doc.as_bytes()))
+    pub fn from_rawdoc(doc: DocRef<'de>) -> Self {
+        BsonDeserializer::from_rawbson(Element::new(ElementType::EmbeddedDocument, doc.as_bytes()))
     }
 
-    pub fn from_rawbson(bson: RawBson<'de>) -> Self {
+    pub fn from_rawbson(bson: Element<'de>) -> Self {
         BsonDeserializer { bson }
     }
 }
 
-pub fn from_rawdoc_buf<'de, T>(rawdoc_buf: &'de RawBsonDocBuf) -> Result<T, crate::de::Error>
+pub fn from_rawdoc_buf<'de, T>(rawdoc_buf: &'de DocBuf) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
 {
-    from_rawdoc(rawdoc_buf.as_ref())
+    from_rawdoc(rawdoc_buf.as_docref())
 }
 
-pub fn from_rawdoc<'de, T>(rawdoc: RawBsonDoc<'de>) -> Result<T, crate::de::Error>
+pub fn from_rawdoc<'de, T>(rawdoc: DocRef<'de>) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
 {
@@ -93,7 +93,7 @@ pub fn from_bytes<'de, T>(data: &'de [u8]) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
 {
-    let raw_document = RawBsonDoc::new(data)?;
+    let raw_document = DocRef::new(data)?;
     from_rawdoc(raw_document)
 }
 
@@ -351,9 +351,7 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
                 assert_eq!(raw_data.len(), len as usize + 4);
                 visitor.visit_bytes(&raw_data[4..])
             }
-            ElementType::ObjectId => {
-                visitor.visit_bytes(self.bson.as_bytes())
-            }
+            ElementType::ObjectId => visitor.visit_bytes(self.bson.as_bytes()),
             _ => Err(Error::MalformedDocument),
         }
     }
@@ -395,8 +393,7 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
                 let sequencer = BsonArraySequencer::new(arr.into_iter());
                 visitor.visit_seq(sequencer)
             }
-            ElementType::ObjectId =>
-                self.deserialize_byte_buf(visitor),
+            ElementType::ObjectId => self.deserialize_byte_buf(visitor),
             _ => Err::<V::Value, Self::Error>(Error::Unimplemented),
         }
     }
@@ -505,11 +502,11 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
 }
 
 struct BsonArraySequencer<'de> {
-    arr_iter: RawBsonArrayIterator<'de>,
+    arr_iter: ArrayIter<'de>,
 }
 
 impl<'de> BsonArraySequencer<'de> {
-    fn new(arr_iter: RawBsonArrayIterator<'de>) -> Self {
+    fn new(arr_iter: ArrayIter<'de>) -> Self {
         BsonArraySequencer { arr_iter }
     }
 }
@@ -533,12 +530,12 @@ impl<'de> SeqAccess<'de> for BsonArraySequencer<'de> {
 }
 
 struct BsonDocumentMap<'de> {
-    doc_iter: RawBsonDocIterator<'de>,
-    next: Option<RawBson<'de>>,
+    doc_iter: DocIter<'de>,
+    next: Option<Element<'de>>,
 }
 
 impl<'de> BsonDocumentMap<'de> {
-    fn new(doc_iter: RawBsonDocIterator<'de>) -> Self {
+    fn new(doc_iter: DocIter<'de>) -> Self {
         BsonDocumentMap {
             doc_iter,
             next: None,
@@ -608,9 +605,9 @@ mod tests {
 
     use serde::Deserialize;
 
-    use super::{from_rawdoc, from_bytes};
+    use super::{from_bytes, from_rawdoc};
     //use crate::decoder::from_rawdoc;
-    use crate::{RawBsonDoc, RawBsonDocBuf};
+    use crate::{DocBuf, DocRef};
     use chrono::Utc;
 
     mod uuid {
@@ -862,12 +859,15 @@ mod tests {
             "oid": object_id.clone(),
         };
         let mut docbytes = Vec::new();
-        doc.to_writer(&mut docbytes).expect("cannot serialize document");
-        let as_object: HashMap<String, ObjectId> = from_bytes(&docbytes).expect("deserialize object_id");
+        doc.to_writer(&mut docbytes)
+            .expect("cannot serialize document");
+        let as_object: HashMap<String, ObjectId> =
+            from_bytes(&docbytes).expect("deserialize object_id");
         assert_eq!(as_object.get("oid").unwrap(), &object_id);
         let as_string: HashMap<String, String> = from_bytes(&docbytes).expect("deserialize string");
         assert_eq!(as_string.get("oid").unwrap(), &object_id.to_hex());
-        let as_bytes: HashMap<String, &[u8]> = from_bytes(&docbytes).expect("deserialize borrowed bytes");
+        let as_bytes: HashMap<String, &[u8]> =
+            from_bytes(&docbytes).expect("deserialize borrowed bytes");
         assert_eq!(as_bytes.get("oid").unwrap(), &object_id.bytes());
     }
 
@@ -941,7 +941,7 @@ mod tests {
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
 
-        let rawdoc = RawBsonDoc::new(&docbytes).expect("Invalid document");
+        let rawdoc = DocRef::new(&docbytes).expect("Invalid document");
         assert!(rawdoc.get_javascript_with_scope("js_with_scope").is_ok());
         let map: HashMap<&str, (&str, HashMap<&str, &str>)> =
             from_rawdoc(rawdoc).expect("could not decode js with scope");
@@ -965,7 +965,7 @@ mod tests {
         let doc = doc! {"regex": bson::Regex { pattern: String::from("^_id$"), options: String::from("i") } };
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDoc::new(&docbytes).expect("Invalid document");
+        let rawdoc = DocRef::new(&docbytes).expect("Invalid document");
         assert!(rawdoc.get_regex("regex").is_ok());
         let map: HashMap<&str, (&str, &str)> = from_rawdoc(rawdoc).expect("could not decode regex");
         assert_eq!(map.get("regex").expect("no key regex").0, "^_id$");
@@ -983,9 +983,10 @@ mod tests {
         let doc = doc! {"utc_datetime": Bson::DateTime(Utc::now())};
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDocBuf::new(docbytes).expect("invalid document");
+        let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
-        let value: Dateish = from_rawdoc(rawdoc.as_ref()).expect("could not decode utc_datetime");
+        let value: Dateish =
+            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
         let elapsed = Utc::now().signed_duration_since(value.utc_datetime);
         // The previous now was less than half a second ago
         assert!(elapsed.num_milliseconds() >= 0);
@@ -998,10 +999,10 @@ mod tests {
         let doc = doc! {"utc_datetime": Utc::now()};
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDocBuf::new(docbytes).expect("invalid document");
+        let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, DateTime> =
-            from_rawdoc(rawdoc.as_ref()).expect("could not decode utc_datetime");
+            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
 
         let dt = map.get("utc_datetime").expect("no key utc_datetime");
         println!("{:?}", dt);
@@ -1018,10 +1019,10 @@ mod tests {
         let doc = doc! { "object_id": ObjectId::with_string("123456123456123456123456").unwrap() };
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDocBuf::new(docbytes).expect("invalid document");
+        let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_object_id("object_id").is_ok());
         let map: HashMap<&str, Bson> =
-            from_rawdoc(rawdoc.as_ref()).expect("could not decode object_id");
+            from_rawdoc(rawdoc.as_docref()).expect("could not decode object_id");
         assert_eq!(
             map.get("object_id").unwrap(),
             &Bson::ObjectId(ObjectId::with_string("123456123456123456123456").unwrap())
@@ -1034,10 +1035,10 @@ mod tests {
         let doc = doc! {"utc_datetime": Utc::now()};
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDocBuf::new(docbytes).expect("invalid document");
+        let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, Bson> =
-            from_rawdoc(rawdoc.as_ref()).expect("could not decode utc_datetime");
+            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime");
 
         let dt = map.get("utc_datetime").expect("no key utc_datetime");
         let dt = dt
@@ -1055,10 +1056,10 @@ mod tests {
         let doc = doc! {"utc_datetime": Bson::DateTime(Utc::now())};
         doc.to_writer(&mut docbytes)
             .expect("could not encode document");
-        let rawdoc = RawBsonDocBuf::new(docbytes).expect("invalid document");
+        let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
         let map: HashMap<&str, i64> =
-            from_rawdoc(rawdoc.as_ref()).expect("could not decode utc_datetime as i64");
+            from_rawdoc(rawdoc.as_docref()).expect("could not decode utc_datetime as i64");
         let _time = map.get("utc_datetime").expect("no key utc_datetime");
     }
 }

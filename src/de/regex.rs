@@ -2,7 +2,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::RawBsonRegex;
+use crate::elem::RawBsonRegex;
 
 pub static NAME: &str = "$__bson_Regex";
 pub static REGEXP_FIELD: &str = "$__bson_regexp_regexp";

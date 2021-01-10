@@ -3,7 +3,7 @@ use serde::forward_to_deserialize_any;
 
 use super::Error;
 use crate::de::BsonDeserializer;
-use crate::RawBsonDoc;
+use crate::DocRef;
 
 pub static NAME: &str = "$__bson_JavaScript";
 pub static WITH_SCOPE_NAME: &str = "$__bson_JavaScriptWithScope";
@@ -41,12 +41,12 @@ impl<'de> Deserializer<'de> for JavaScriptKeyDeserializer {
 
 pub(super) struct JavaScriptWithScopeDeserializer<'de> {
     js: &'de str,
-    scope: RawBsonDoc<'de>,
+    scope: DocRef<'de>,
     visiting: ScopedVisiting,
 }
 
 impl<'de> JavaScriptWithScopeDeserializer<'de> {
-    pub(super) fn new(data: (&'de str, RawBsonDoc<'de>)) -> JavaScriptWithScopeDeserializer<'de> {
+    pub(super) fn new(data: (&'de str, DocRef<'de>)) -> JavaScriptWithScopeDeserializer<'de> {
         JavaScriptWithScopeDeserializer {
             js: data.0,
             scope: data.1,
