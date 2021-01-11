@@ -187,18 +187,55 @@ impl<'a> From<ValueAccessError> for RawError {
     }
 }
 
-
+/// A BSON document, stored as raw binary data on the heap.  This can be created from
+/// a `Vec<u8>` or a [`bson::Document`].
+///
+/// Accessing elements within the `DocBuf` is similar to element access in [bson::Document],
+/// but as the contents are parsed during iteration, instead of at creation time, format
+/// errors can happen at any time during use, instead of at creation time.
+///
+/// DocBuf can be iterated over, yielding a Result containing key-value pairs that
+/// borrow from the DocBuf instead of allocating, when necessary.
+///
+/// ```
+/// # use rawbson::{DocBuf, RawError};
+/// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+/// let mut iter = docbuf.iter();
+/// let (key, value) = iter.next().unwrap()?;
+/// assert_eq!(key, "hello");
+/// assert_eq!(value.as_str(), Ok("world"));
+/// assert!(iter.next().is_none());
+/// # Ok::<(), RawError>(())
+/// ```
+///
+/// Individual elements can be accessed using [`docbuf.get(&key)`](DocBuf::get), or any of
+/// the `get_*` methods, like [`docbuf.get_object_id(&key)`](DocBuf::get_object_id), and
+/// [`docbuf.get_str(&str)`](DocBuf::get_str).
+///
+/// ```
+/// # use rawbson::{DocBuf, RawError};
+/// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+/// assert_eq!(docbuf.get_str("hello")?, Some("world"));
+/// # Ok::<(), RawError>(())
+/// ```
 #[derive(Clone)]
 pub struct DocBuf {
     data: Vec<u8>,
 }
 
 impl DocBuf {
-    pub fn as_docref(&self) -> DocRef<'_> {
-        let &DocBuf { ref data } = self;
-        DocRef { data }
-    }
 
+    /// Create a new `DocBuf` from the provided `Vec`.
+    ///
+    /// The data is checked for a declared length equal to the length of the Vec,
+    /// and a trailing NUL byte.  Other validation is deferred to access time.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// let docbuf = DocBuf::new(b"\x05\0\0\0\0".to_vec())?;
+    /// assert!(docbuf.iter().next().is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn new(data: Vec<u8>) -> RawResult<DocBuf> {
         if data.len() < 5 {
             return Err(RawError::MalformedValue("document too short".into()));
@@ -215,21 +252,80 @@ impl DocBuf {
         Ok(unsafe { DocBuf::new_unchecked(data) })
     }
 
+    /// Create a DocBuf from a [bson::Document].
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::{doc, oid};
+    /// let document = doc! {
+    ///     "_id": oid::ObjectId::new(),
+    ///     "name": "Herman Melville",
+    ///     "title": "Moby-Dick",
+    /// };
+    /// let docbuf = DocBuf::from_document(&document);
+    /// assert!(docbuf.get_object_id("_id")?.is_some());
+    /// assert_eq!(docbuf.get_str("title")?, Some("Moby-Dick"));
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn from_document(doc: &bson::Document) -> DocBuf {
         let mut data = Vec::new();
         doc.to_writer(&mut data).unwrap();
         unsafe { DocBuf::new_unchecked(data) }
     }
 
-    /// Create a DocumentBuf from an owned Vec<u8>.
+    /// Create a DocBuf from an owned Vec<u8> without performing any checks on the provided data.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// let docbuf = unsafe {
+    ///     DocBuf::new_unchecked(b"\x05\0\0\0\0".to_vec())
+    /// };
+    /// assert!(docbuf.iter().next().is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     ///
     /// # Safety
     ///
-    /// The provided bytes must be a valid bson document
+    /// The provided bytes must have a valid length marker, and be NUL terminated.
     pub unsafe fn new_unchecked(data: Vec<u8>) -> DocBuf {
         DocBuf { data }
     }
 
+    /// Return a [`DocRef`] borrowing from the data contained in self.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+    /// let docref = docbuf.as_docref();
+    /// assert_eq!(
+    ///    docbuf.get_str("hello").unwrap(),
+    ///    docref.get_str("hello").unwrap(),
+    /// );
+    /// # Ok::<(), RawError>(())
+    /// ```
+    pub fn as_docref(&self) -> DocRef<'_> {
+        let &DocBuf { ref data } = self;
+        DocRef { data }
+    }
+
+    /// Return an iterator over the elements in the `DocBuf`, borrowing data.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! { "hello": "world" });
+    /// for element in docbuf.iter() {
+    ///     let (key, value) = element?;
+    ///     println!("{}: {}", key, value.as_str()?);
+    /// }
+    /// # Ok::<(), RawError>(())
+    /// ```
+
+    /// # Note:
+    ///
+    /// There is no owning iterator for DocBuf.  If you need ownership over
+    /// elements that might need to allocate, you must explicitly convert
+    /// them to owned types yourself.
     pub fn iter(&self) -> DocIter<'_> {
         self.into_iter()
     }
