@@ -2,9 +2,9 @@ use serde::de::{self, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visit
 use serde::forward_to_deserialize_any;
 use serde::Deserialize;
 
-use std::convert::TryInto;
-use std::fmt::Debug;
-use std::num::TryFromIntError;
+use core::convert::TryInto;
+use core::fmt::Debug;
+use core::num::TryFromIntError;
 
 use crate::{elem::Element, ArrayIter, DocBuf, DocIter, DocRef, RawError};
 use bson::spec::ElementType;
@@ -38,14 +38,14 @@ impl From<TryFromIntError> for Error {
 
 impl std::error::Error for Error {}
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
 impl de::Error for Error {
-    fn custom<T: std::fmt::Display>(err: T) -> Error {
+    fn custom<T: core::fmt::Display>(err: T) -> Error {
         Error::Internal(format!("{}", err))
     }
 }
@@ -618,7 +618,7 @@ mod tests {
         use serde::Deserializer;
 
         use bson::spec::BinarySubtype;
-        use std::convert::TryInto;
+        use core::convert::TryInto;
 
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub(super) struct Uuid {

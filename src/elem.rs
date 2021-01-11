@@ -1,4 +1,4 @@
-use std::{convert::{TryFrom, TryInto}, time::Duration};
+use core::{convert::{TryFrom, TryInto}, time::Duration};
 
 use bson::oid;
 pub use bson::spec::{BinarySubtype, ElementType};
@@ -234,10 +234,10 @@ impl<'a> Element<'a> {
     }
 }
 
-impl<'a> TryFrom<Element<'a>> for bson::Bson {
+impl TryFrom<Element<'_>> for bson::Bson {
     type Error = RawError;
 
-    fn try_from(rawbson: Element<'a>) -> RawResult<bson::Bson> {
+    fn try_from(rawbson: Element<'_>) -> RawResult<bson::Bson> {
         Ok(match rawbson.element_type {
             ElementType::Double => bson::Bson::Double(rawbson.as_f64()?),
             ElementType::String => bson::Bson::String(String::from(rawbson.as_str()?)),

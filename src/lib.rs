@@ -137,7 +137,10 @@ assert!(user.birthdate.is_none());
 ```
 */
 
-use std::convert::{TryFrom, TryInto};
+extern crate alloc;
+
+use alloc::string::String;
+use core::{convert::{TryFrom, TryInto}, ops::Deref};
 
 use chrono::{DateTime, Utc};
 
@@ -804,7 +807,7 @@ fn read_lenencoded(buf: &[u8]) -> RawResult<&str> {
 }
 
 fn try_to_str(data: &[u8]) -> RawResult<&str> {
-    match std::str::from_utf8(data) {
+    match core::str::from_utf8(data) {
         Ok(s) => Ok(s),
         Err(_) => Err(RawError::Utf8EncodingError(data.into())),
     }
@@ -1244,7 +1247,7 @@ mod tests {
 #[cfg(test)]
 mod proptests {
     use proptest::prelude::*;
-    use std::convert::TryInto;
+    use core::convert::TryInto;
 
     use super::DocBuf;
     use crate::props::arbitrary_bson;

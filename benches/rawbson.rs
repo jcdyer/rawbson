@@ -1,7 +1,7 @@
 use bson::doc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rawbson::DocBuf;
-use std::convert::TryInto;
+use core::convert::TryInto;
 use std::io::{Cursor, Read};
 
 fn construct_deep_doc(depth: usize) -> bson::Document {
