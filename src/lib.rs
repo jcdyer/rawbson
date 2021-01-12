@@ -210,7 +210,9 @@ impl<'a> From<ValueAccessError> for RawError {
 ///
 /// Individual elements can be accessed using [`docbuf.get(&key)`](DocBuf::get), or any of
 /// the `get_*` methods, like [`docbuf.get_object_id(&key)`](DocBuf::get_object_id), and
-/// [`docbuf.get_str(&str)`](DocBuf::get_str).
+/// [`docbuf.get_str(&str)`](DocBuf::get_str).  Accessing elements is an O(N) operation,
+/// as it requires iterating through the document from the beginning to find the requested
+/// key.
 ///
 /// ```
 /// # use rawbson::{DocBuf, RawError};
@@ -276,7 +278,6 @@ impl DocBuf {
     /// let docbuf: DocBuf = unsafe {
     ///     DocBuf::new_unchecked(b"\x05\0\0\0\0".to_vec())
     /// };
-    /// assert!(docbuf.iter().next().is_none());
     /// # Ok::<(), RawError>(())
     /// ```
     ///
@@ -349,9 +350,7 @@ impl DocBuf {
         self.as_docref().get(key)
     }
 
-    /// Get an element from the document, and convert it to f64. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to f64.
     ///
     /// Returns an error if the document is malformed, or if the retrieved value
     /// is not an f64.  Returns `Ok(None)` if the key is not found in the document.
@@ -372,9 +371,7 @@ impl DocBuf {
         self.as_docref().get_f64(key)
     }
 
-    /// Get an element from the document, and convert it to a &str. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a &str.
     ///
     /// The returned &str is a borrowed reference into the DocBuf.  To use it
     /// beyond the lifetime of self, call to_docbuf() on it.
@@ -399,9 +396,7 @@ impl DocBuf {
         self.as_docref().get_str(key)
     }
 
-    /// Get an element from the document, and convert it to a [DocRef]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a [DocRef].
     ///
     /// The returned [DocRef] is a borrowed reference into the DocBuf.  To use it
     /// beyond the lifetime of self, call to_owned() on it.
@@ -426,9 +421,7 @@ impl DocBuf {
         self.as_docref().get_document(key)
     }
 
-    /// Get an element from the document, and convert it to an [ArrayRef]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to an [ArrayRef].
     ///
     /// The returned [ArrayRef] is a borrowed reference into the DocBuf.
     ///
@@ -456,9 +449,7 @@ impl DocBuf {
         self.as_docref().get_array(key)
     }
 
-    /// Get an element from the document, and convert it to an [elem::RawBsonBinary]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to an [elem::RawBsonBinary].
     ///
     /// The returned [RawBsonBinary](elem::RawBsonBinary) is a borrowed reference into the DocBuf.
     ///
@@ -482,9 +473,7 @@ impl DocBuf {
         self.as_docref().get_binary(key)
     }
 
-    /// Get an element from the document, and convert it to a [bson::oid::ObjectId]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a [bson::oid::ObjectId].
     ///
     /// Returns an error if the document is malformed or if the retrieved value
     /// is not an object ID.  Returns `Ok(None)` if the key is not found in the
@@ -506,9 +495,7 @@ impl DocBuf {
         self.as_docref().get_object_id(key)
     }
 
-    /// Get an element from the document, and convert it to a [bool]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a [bool].
     ///
     /// Returns an error if the document is malformed or if the retrieved value
     /// is not a boolean.  Returns `Ok(None)` if the key is not found in the
@@ -530,9 +517,7 @@ impl DocBuf {
         self.as_docref().get_bool(key)
     }
 
-    /// Get an element from the document, and convert it to a [bool]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a [bool].
     ///
     /// Returns an error if the document is malformed or if the retrieved value
     /// is not a boolean.  Returns `Ok(None)` if the key is not found in the
@@ -555,9 +540,7 @@ impl DocBuf {
         self.as_docref().get_datetime(key)
     }
 
-    /// Get an element from the document, and convert it to the `()` type. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to the `()` type.
     ///
     /// Returns an error if the document is malformed or if the retrieved value
     /// is not null.  Returns `Ok(None)` if the key is not found in the
@@ -582,9 +565,7 @@ impl DocBuf {
         self.as_docref().get_null(key)
     }
 
-    /// Get an element from the document, and convert it to an [elem::RawBsonRegex]. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to an [elem::RawBsonRegex].
     ///
     /// The [RawBsonRegex](elem::RawBsonRegex) borrows data from the DocBuf.
     ///
@@ -612,8 +593,7 @@ impl DocBuf {
     }
 
     /// Get an element from the document, and convert it to an &str representing the
-    /// javascript element type. Finding a particular key requires iterating over the
-    /// document from the beginning, so this is an O(N) operation.
+    /// javascript element type.
     ///
     /// The &str borrows data from the DocBuf.  If you need an owned copy of the data,
     /// you should call .to_owned() on the result.
@@ -638,8 +618,7 @@ impl DocBuf {
     }
 
     /// Get an element from the document, and convert it to an &str representing the
-    /// symbol element type. Finding a particular key requires iterating over the
-    /// document from the beginning, so this is an O(N) operation.
+    /// symbol element type.
     ///
     /// The &str borrows data from the DocBuf.  If you need an owned copy of the data,
     /// you should call .to_owned() on the result.
@@ -665,8 +644,6 @@ impl DocBuf {
     }
 
     /// Get an element from the document, and extract the data as a javascript code with scope.
-    /// Finding a particular key requires iterating over the
-    /// document from the beginning, so this is an O(N) operation.
     ///
     /// The return value is a `(&str, DocRef)` where the &str represents the javascript code,
     /// and the DocRef represents the scope.  Both elements borrow data from the DocBuf.  If you need an owned copy of the data,
@@ -697,9 +674,7 @@ impl DocBuf {
         self.as_docref().get_javascript_with_scope(key)
     }
 
-    /// Get an element from the document, and convert it to i32. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to i32.
     ///
     /// Returns an error if the document is malformed, or if the retrieved value
     /// is not an i32.  Returns `Ok(None)` if the key is not found in the document.
@@ -720,9 +695,7 @@ impl DocBuf {
         self.as_docref().get_i32(key)
     }
 
-    /// Get an element from the document, and convert it to a timestamp. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to a timestamp.
     ///
     /// Returns an error if the document is malformed, or if the retrieved value
     /// is not an i32.  Returns `Ok(None)` if the key is not found in the document.
@@ -747,9 +720,7 @@ impl DocBuf {
         self.as_docref().get_timestamp(key)
     }
 
-    /// Get an element from the document, and convert it to i64. Finding a
-    /// particular key requires iterating over the document from the beginning,
-    /// so this is an O(N) operation.
+    /// Get an element from the document, and convert it to i64.
     ///
     /// Returns an error if the document is malformed, or if the retrieved value
     /// is not an i64.  Returns `Ok(None)` if the key is not found in the document.
@@ -815,13 +786,59 @@ impl<'a> IntoIterator for &'a DocBuf {
     }
 }
 
+/// A BSON document, referencing raw binary data stored elsewhere.  This can be created from
+/// a [DocBuf] or any type that contains valid BSON data, and can be referenced as a `[u8]`,
+/// including static binary literals, [Vec<u8>](std::vec::Vec), or arrays.
+///
+/// Accessing elements within the `DocRef` is similar to element access in [bson::Document],
+/// but as the contents are parsed during iteration, instead of at creation time, format
+/// errors can happen at any time during use, instead of at creation time.
+///
+/// DocRef can be iterated over, yielding a Result containing key-value pairs that share the
+/// borrow with the source bytes instead of allocating, when necessary.
+///
+/// ```
+/// # use rawbson::{DocRef, RawError};
+/// let docref = DocRef::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00")?;
+/// let mut iter = docref.iter();
+/// let (key, value) = iter.next().unwrap()?;
+/// assert_eq!(key, "hi");
+/// assert_eq!(value.as_str(), Ok("y'all"));
+/// assert!(iter.next().is_none());
+/// # Ok::<(), RawError>(())
+/// ```
+///
+/// Individual elements can be accessed using [`docref.get(&key)`](DocRef::get), or any of
+/// the `get_*` methods, like [`docref.get_object_id(&key)`](DocRef::get_object_id), and
+/// [`docref.get_str(&str)`](DocBuf::get_str).  Accessing elements is an O(N) operation,
+/// as it requires iterating through the document from the beginning to find the requested
+/// key.
+///
+/// ```
+/// # use rawbson::{DocBuf, RawError};
+/// let docbuf = DocBuf::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00".to_vec())?;
+/// assert_eq!(docbuf.get_str("hi")?, Some("y'all"));
+/// # Ok::<(), RawError>(())
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct DocRef<'a> {
     data: &'a [u8],
 }
 
 impl<'a> DocRef<'a> {
-    pub fn new(data: &'a [u8]) -> RawResult<DocRef<'a>> {
+    /// Create a DocRef referencing the provided binary data.
+    ///
+    /// ```
+    /// # use rawbson::{DocRef, RawError};
+    /// let data: [u8; 5] = [5, 0, 0, 0, 0];
+    /// let docref = DocRef::new(&data)?;
+    /// # Ok::<(), RawError>(())
+    /// ```
+    ///
+    /// The data is checked for a declared length equal to the actual length,
+    /// and a trailing NUL byte.  Other validation is deferred to access time.
+    pub fn new<T: AsRef<[u8]> + ?Sized>(data: &'a T) -> RawResult<DocRef<'a>> {
+        let data = data.as_ref();
         if data.len() < 5 {
             return Err(RawError::MalformedValue("document too short".into()));
         }
@@ -834,16 +851,32 @@ impl<'a> DocRef<'a> {
                 "document not null-terminated".into(),
             ));
         }
-        Ok(DocRef::new_unchecked(data))
+        Ok(unsafe { DocRef::new_unchecked(data) })
     }
 
+    /// Create an owned [DocBuf] from the referenced data.
     pub fn to_docbuf(self) -> DocBuf {
         DocBuf {
             data: self.data.to_vec(),
         }
     }
 
-    pub fn new_unchecked(data: &'a [u8]) -> DocRef<'a> {
+    /// Create a DocRef referencing the provided binary data without performing
+    /// any checks on the data.
+    ///
+    /// ```
+    /// # use rawbson::{DocRef, RawError};
+    /// let docref: DocRef = unsafe {
+    ///     DocRef::new_unchecked(b"\x05\0\0\0\0")
+    /// };
+    /// # Ok::<(), RawError>(())
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// The provided bytes must have a valid length marker, and be NUL terminated.
+
+    pub unsafe fn new_unchecked(data: &'a [u8]) -> DocRef<'a> {
         DocRef { data }
     }
 
@@ -1398,7 +1431,7 @@ mod tests {
             "end": "END",
         });
 
-        let rawdoc = DocRef::new_unchecked(&docbytes);
+        let rawdoc = unsafe { DocRef::new_unchecked(&docbytes) };
         let _doc: bson::Document = rawdoc.try_into().expect("invalid bson");
     }
 
@@ -1663,7 +1696,7 @@ mod tests {
             "int64": 46i64,
             "end": "END",
         });
-        let rawdoc = DocRef::new_unchecked(&docbytes);
+        let rawdoc = unsafe { DocRef::new_unchecked(&docbytes) };
 
         assert_eq!(
             rawdoc

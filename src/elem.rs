@@ -313,10 +313,12 @@ impl<'a> RawBsonBinary<'a> {
         RawBsonBinary { subtype, data }
     }
 
+    /// Return the BinarySubtype.
     pub fn subtype(self) -> BinarySubtype {
         self.subtype
     }
 
+    /// Return the binary data as raw bytes.
     pub fn as_bytes(self) -> &'a [u8] {
         self.data
     }
@@ -359,13 +361,17 @@ pub struct RawBsonTimestamp<'a> {
 }
 
 impl<'a> RawBsonTimestamp<'a> {
+    /// Return the time portion of the timestamp.
+    pub fn time(&self) -> u32 {
+        // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
+        u32_from_slice(&self.data[4..8])
+    }
+
+    /// Return the increment portion of the timestamp.
     pub fn increment(&self) -> u32 {
         // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
         u32_from_slice(&self.data[0..4])
     }
 
-    pub fn time(&self) -> u32 {
-        // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
-        u32_from_slice(&self.data[4..8])
-    }
+
 }
