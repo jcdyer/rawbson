@@ -800,7 +800,7 @@ impl<'a> IntoIterator for &'a DocBuf {
 /// ```
 /// # use rawbson::{DocRef, RawError};
 /// let docref = DocRef::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00")?;
-/// let mut iter = docref.iter();
+/// let mut iter = docref.into_iter();
 /// let (key, value) = iter.next().unwrap()?;
 /// assert_eq!(key, "hi");
 /// assert_eq!(value.as_str(), Ok("y'all"));
@@ -851,7 +851,7 @@ impl<'a> DocRef<'a> {
                 "document not null-terminated".into(),
             ));
         }
-        Ok(unsafe { DocRef::new_unchecked(data) })
+        Ok(DocRef::new_unchecked(data))
     }
 
     /// Create an owned [DocBuf] from the referenced data.
@@ -866,17 +866,10 @@ impl<'a> DocRef<'a> {
     ///
     /// ```
     /// # use rawbson::{DocRef, RawError};
-    /// let docref: DocRef = unsafe {
-    ///     DocRef::new_unchecked(b"\x05\0\0\0\0")
-    /// };
+    /// let docref: DocRef = DocRef::new_unchecked(b"\x05\0\0\0\0");
     /// # Ok::<(), RawError>(())
     /// ```
-    ///
-    /// # Safety
-    ///
-    /// The provided bytes must have a valid length marker, and be NUL terminated.
-
-    pub unsafe fn new_unchecked(data: &'a [u8]) -> DocRef<'a> {
+    pub fn new_unchecked(data: &'a [u8]) -> DocRef<'a> {
         DocRef { data }
     }
 
@@ -1431,7 +1424,7 @@ mod tests {
             "end": "END",
         });
 
-        let rawdoc = unsafe { DocRef::new_unchecked(&docbytes) };
+        let rawdoc = DocRef::new_unchecked(&docbytes);
         let _doc: bson::Document = rawdoc.try_into().expect("invalid bson");
     }
 
@@ -1696,7 +1689,7 @@ mod tests {
             "int64": 46i64,
             "end": "END",
         });
-        let rawdoc = unsafe { DocRef::new_unchecked(&docbytes) };
+        let rawdoc = DocRef::new_unchecked(&docbytes);
 
         assert_eq!(
             rawdoc
