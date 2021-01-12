@@ -1,21 +1,24 @@
-use std::{convert::{TryFrom, TryInto}, time::Duration};
+use std::{
+    convert::{TryFrom, TryInto},
+    time::Duration,
+};
 
 use bson::oid;
 pub use bson::spec::{BinarySubtype, ElementType};
 use chrono::{DateTime, TimeZone, Utc};
 
-use crate::{ArrayRef, DocRef, RawError, RawResult, d128_from_slice, i32_from_slice, i64_from_slice, read_lenencoded, read_nullterminated, u32_from_slice};
+use crate::{
+    d128_from_slice, i32_from_slice, i64_from_slice, read_lenencoded, read_nullterminated,
+    u32_from_slice, ArrayRef, DocRef, RawError, RawResult,
+};
 
-
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Element<'a> {
     element_type: ElementType,
     data: &'a [u8],
 }
 
 impl<'a> Element<'a> {
-
     // This is not public.  An Element object can only be created by iterating over a bson document method
     // on RawBsonDoc
     pub(super) fn new(element_type: ElementType, data: &'a [u8]) -> Element<'a> {
@@ -277,8 +280,8 @@ impl<'a> TryFrom<Element<'a>> for bson::Bson {
                 // RawBson::as_timestamp() returns u64, but bson::Bson::Timestamp expects i64
                 let ts = rawbson.as_timestamp()?;
                 bson::Bson::Timestamp(bson::Timestamp {
-                    time: ts.time()?,
-                    increment: ts.increment()?,
+                    time: ts.time(),
+                    increment: ts.increment(),
                 })
             }
             ElementType::Int64 => bson::Bson::Int64(rawbson.as_i64()?),
@@ -319,7 +322,7 @@ impl<'a> RawBsonBinary<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct RawBsonRegex<'a> {
     pub(super) pattern: &'a str,
     pub(super) options: &'a str,
@@ -350,23 +353,19 @@ impl<'a> RawBsonRegex<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RawBsonTimestamp<'a> {
-    pub(super) data: &'a [u8],
+    data: &'a [u8],
 }
 
 impl<'a> RawBsonTimestamp<'a> {
-    pub fn increment(&self) -> RawResult<u32> {
-        self.data
-            .get(0..4)
-            .map(u32_from_slice)
-            .ok_or_else(|| RawError::MalformedValue("wrong length timestamp".into()))
+    pub fn increment(&self) -> u32 {
+        // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
+        u32_from_slice(&self.data[0..4])
     }
 
-    pub fn time(&self) -> RawResult<u32> {
-        self.data
-            .get(4..8)
-            .map(u32_from_slice)
-            .ok_or_else(|| RawError::MalformedValue("wrong length timestamp".into()))
+    pub fn time(&self) -> u32 {
+        // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
+        u32_from_slice(&self.data[4..8])
     }
 }

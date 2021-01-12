@@ -555,7 +555,7 @@ impl DocBuf {
         self.as_docref().get_datetime(key)
     }
 
-    /// Get an element from the document, and convert it to the unit type [()]. Finding a
+    /// Get an element from the document, and convert it to the `()` type. Finding a
     /// particular key requires iterating over the document from the beginning,
     /// so this is an O(N) operation.
     ///
@@ -582,19 +582,117 @@ impl DocBuf {
         self.as_docref().get_null(key)
     }
 
+    /// Get an element from the document, and convert it to an [elem::RawBsonRegex]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// The [RawBsonRegex](elem::RawBsonRegex) borrows data from the DocBuf.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a regex.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    /// ```
+    /// # use rawbson::{DocBuf, RawError, elem};
+    /// use bson::{doc, Regex};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "regex": Regex {
+    ///         pattern: String::from(r"end\s*$"),
+    ///         options: String::from("i"),
+    ///     },
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_regex("regex")?.unwrap().pattern(), r"end\s*$");
+    /// assert_eq!(docbuf.get_regex("regex")?.unwrap().options(), "i");
+    /// assert_eq!(docbuf.get_regex("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_regex("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_regex<'a>(&'a self, key: &str) -> OptResult<elem::RawBsonRegex<'a>> {
         self.as_docref().get_regex(key)
     }
 
+    /// Get an element from the document, and convert it to an &str representing the
+    /// javascript element type. Finding a particular key requires iterating over the
+    /// document from the beginning, so this is an O(N) operation.
     ///
+    /// The &str borrows data from the DocBuf.  If you need an owned copy of the data,
+    /// you should call .to_owned() on the result.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a javascript code object.  Returns `Ok(None)` if the key is not found
+    /// in the document.
+    /// ```
+    /// # use rawbson::{DocBuf, RawError, elem};
+    /// use bson::{doc, Bson};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "js": Bson::JavaScriptCode(String::from("console.log(\"hi y'all\");")),
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_javascript("js")?, Some("console.log(\"hi y'all\");"));
+    /// assert_eq!(docbuf.get_javascript("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_javascript("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_javascript<'a>(&'a self, key: &str) -> OptResult<&'a str> {
         self.as_docref().get_javascript(key)
     }
+
+    /// Get an element from the document, and convert it to an &str representing the
+    /// symbol element type. Finding a particular key requires iterating over the
+    /// document from the beginning, so this is an O(N) operation.
+    ///
+    /// The &str borrows data from the DocBuf.  If you need an owned copy of the data,
+    /// you should call .to_owned() on the result.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a symbol object.  Returns `Ok(None)` if the key is not found
+    /// in the document.
+    /// ```
+    /// # use rawbson::{DocBuf, RawError, elem};
+    /// use bson::{doc, Bson};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "symbol": Bson::Symbol(String::from("internal")),
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_symbol("symbol")?, Some("internal"));
+    /// assert_eq!(docbuf.get_symbol("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_symbol("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
 
     pub fn get_symbol<'a>(&'a self, key: &str) -> OptResult<&'a str> {
         self.as_docref().get_symbol(key)
     }
 
+    /// Get an element from the document, and extract the data as a javascript code with scope.
+    /// Finding a particular key requires iterating over the
+    /// document from the beginning, so this is an O(N) operation.
+    ///
+    /// The return value is a `(&str, DocRef)` where the &str represents the javascript code,
+    /// and the DocRef represents the scope.  Both elements borrow data from the DocBuf.  If you need an owned copy of the data,
+    /// you should call [js.to_owned()](str::to_owned) on the code or
+    /// [scope.to_docbuf()](DocRef::to_docbuf) on the scope.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a javascript code with scope object.  Returns `Ok(None)` if the key is not found
+    /// in the document.
+    /// ```
+    /// # use rawbson::{DocBuf, RawError, elem};
+    /// use bson::{doc, JavaScriptCodeWithScope};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "js": JavaScriptCodeWithScope {
+    ///         code: String::from("console.log(\"i:\", i);"),
+    ///         scope: doc!{"i": 42},
+    ///     },
+    ///     "bool": true,
+    /// });
+    /// let (js, scope) = docbuf.get_javascript_with_scope("js")?.unwrap();
+    /// assert_eq!(js, "console.log(\"i:\", i);");
+    /// assert_eq!(scope.get_i32("i")?.unwrap(), 42);
+    /// assert_eq!(docbuf.get_javascript_with_scope("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_javascript_with_scope("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_javascript_with_scope<'a>(&'a self, key: &str) -> OptResult<(&'a str, DocRef<'a>)> {
         self.as_docref().get_javascript_with_scope(key)
     }
@@ -607,7 +705,7 @@ impl DocBuf {
     /// is not an i32.  Returns `Ok(None)` if the key is not found in the document.
     ///
     /// ```
-    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// # use rawbson::{DocBuf, RawError};
     /// use bson::doc;
     /// let docbuf = DocBuf::from_document(&doc! {
     ///     "bool": true,
@@ -621,6 +719,29 @@ impl DocBuf {
     pub fn get_i32(&self, key: &str) -> OptResult<i32> {
         self.as_docref().get_i32(key)
     }
+
+    /// Get an element from the document, and convert it to a timestamp. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed, or if the retrieved value
+    /// is not an i32.  Returns `Ok(None)` if the key is not found in the document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem, RawError};
+    /// use bson::{doc, Timestamp};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "bool": true,
+    ///     "ts": Timestamp { time: 649876543, increment: 9 },
+    /// });
+    /// let timestamp = docbuf.get_timestamp("ts")?.unwrap();
+    ///
+    /// assert_eq!(timestamp.time(), 649876543);
+    /// assert_eq!(timestamp.increment(), 9);
+    /// assert_eq!(docbuf.get_timestamp("bool"), Err(RawError::UnexpectedType));
+    /// assert_eq!(docbuf.get_timestamp("unknown"), Ok(None));
+    /// # Ok::<(), RawError>(())
+    /// ```
 
     pub fn get_timestamp<'a>(&'a self, key: &str) -> OptResult<elem::RawBsonTimestamp<'a>> {
         self.as_docref().get_timestamp(key)
@@ -669,7 +790,6 @@ impl DocBuf {
     /// let docbuf = DocBuf::from_document(&doc!{});
     /// assert_eq!(docbuf.as_bytes(), b"\x05\x00\x00\x00\x00");
     /// ```
-
     pub fn as_bytes(&self) -> &[u8] {
         &self.data
     }
@@ -1496,7 +1616,7 @@ mod tests {
     #[test]
     fn timestamp() {
         let rawdoc = DocBuf::from_document(&doc! {
-            "timestamp": Bson::Timestamp(Timestamp { time: 3542578, increment: 0 }),
+            "timestamp": Bson::Timestamp(Timestamp { time: 3542578, increment: 7 }),
         });
         let ts = rawdoc
             .get("timestamp")
@@ -1505,8 +1625,8 @@ mod tests {
             .as_timestamp()
             .expect("was not a timestamp");
 
-        assert_eq!(ts.increment().expect("timestamp has invalid increment"), 0);
-        assert_eq!(ts.time().expect("timestamp has invalid time"), 3542578);
+        assert_eq!(ts.increment(), 7);
+        assert_eq!(ts.time(), 3542578);
     }
 
     #[test]

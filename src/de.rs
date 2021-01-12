@@ -258,7 +258,7 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
     #[cfg(not(feature = "u2i"))]
     fn deserialize_u64<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         let val = match self.bson.element_type() {
-            ElementType::Timestamp => self.bson.as_timestamp()?.time()? as u64, // TODO: Proper Timestamp handling
+            ElementType::Timestamp => self.bson.as_timestamp()?.time() as u64, // TODO: Proper Timestamp handling
             ElementType::Int64 => self.bson.as_i64()?.try_into()?,
             _ => return Err(Error::MalformedDocument),
         };
