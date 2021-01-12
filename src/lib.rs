@@ -10,17 +10,17 @@ use rawbson::{
     elem,
 };
 
-// \x16\x00\x00\x00                   // total document size
-// \x02                               // 0x02 = type String
-// hello\x00                          // field name
-// \x06\x00\x00\x00world\x00          // field value
-// \x00
+// \x13\x00\x00\x00           // total document size
+// \x02                       // 0x02 = type String
+// hi\x00                     // field name
+// \x06\x00\x00\x00y'all\x00  // field value
+// \x00                       // document terminating NUL
 
-let doc = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
-let elem: Option<elem::Element> = doc.get("hello")?;
+let doc = DocBuf::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00".to_vec())?;
+let elem: Option<elem::Element> = doc.get("hi")?;
 assert_eq!(
     elem.unwrap().as_str()?,
-    "world",
+    "y'all",
 );
 # Ok::<(), rawbson::RawError>(())
 ```
@@ -66,8 +66,8 @@ The below example performs no allocation.
 ```rust
 use rawbson::DocRef;
 
-let bytes = b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00";
-assert_eq!(DocRef::new(bytes)?.get_str("hello")?, Some("world"));
+let bytes = b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00";
+assert_eq!(DocRef::new(bytes)?.get_str("hi")?, Some("y'all"));
 # Ok::<(), rawbson::RawError>(())
 ```
 
@@ -199,11 +199,11 @@ impl<'a> From<ValueAccessError> for RawError {
 ///
 /// ```
 /// # use rawbson::{DocBuf, RawError};
-/// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+/// let docbuf = DocBuf::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00".to_vec())?;
 /// let mut iter = docbuf.iter();
 /// let (key, value) = iter.next().unwrap()?;
-/// assert_eq!(key, "hello");
-/// assert_eq!(value.as_str(), Ok("world"));
+/// assert_eq!(key, "hi");
+/// assert_eq!(value.as_str(), Ok("y'all"));
 /// assert!(iter.next().is_none());
 /// # Ok::<(), RawError>(())
 /// ```
@@ -214,8 +214,8 @@ impl<'a> From<ValueAccessError> for RawError {
 ///
 /// ```
 /// # use rawbson::{DocBuf, RawError};
-/// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
-/// assert_eq!(docbuf.get_str("hello")?, Some("world"));
+/// let docbuf = DocBuf::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00".to_vec())?;
+/// assert_eq!(docbuf.get_str("hi")?, Some("y'all"));
 /// # Ok::<(), RawError>(())
 /// ```
 #[derive(Clone, Debug)]
@@ -231,8 +231,7 @@ impl DocBuf {
     ///
     /// ```
     /// # use rawbson::{DocBuf, RawError};
-    /// let docbuf = DocBuf::new(b"\x05\0\0\0\0".to_vec())?;
-    /// assert!(docbuf.iter().next().is_none());
+    /// let docbuf: DocBuf = DocBuf::new(b"\x05\0\0\0\0".to_vec())?;
     /// # Ok::<(), RawError>(())
     /// ```
     pub fn new(data: Vec<u8>) -> RawResult<DocBuf> {
@@ -261,9 +260,7 @@ impl DocBuf {
     ///     "name": "Herman Melville",
     ///     "title": "Moby-Dick",
     /// };
-    /// let docbuf = DocBuf::from_document(&document);
-    /// assert!(docbuf.get_object_id("_id")?.is_some());
-    /// assert_eq!(docbuf.get_str("title")?, Some("Moby-Dick"));
+    /// let docbuf: DocBuf = DocBuf::from_document(&document);
     /// # Ok::<(), RawError>(())
     /// ```
     pub fn from_document(doc: &bson::Document) -> DocBuf {
@@ -276,7 +273,7 @@ impl DocBuf {
     ///
     /// ```
     /// # use rawbson::{DocBuf, RawError};
-    /// let docbuf = unsafe {
+    /// let docbuf: DocBuf = unsafe {
     ///     DocBuf::new_unchecked(b"\x05\0\0\0\0".to_vec())
     /// };
     /// assert!(docbuf.iter().next().is_none());
@@ -294,13 +291,8 @@ impl DocBuf {
     ///
     /// ```
     /// # use rawbson::{DocBuf, DocRef, RawError};
-    /// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
+    /// let docbuf = DocBuf::new(b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00".to_vec())?;
     /// let docref: DocRef = docbuf.as_docref();
-    /// assert_eq!(docbuf.as_bytes(), docref.as_bytes());
-    /// assert_eq!(
-    ///    docbuf.get_str("hello").unwrap(),
-    ///    docref.get_str("hello").unwrap(),
-    /// );
     /// # Ok::<(), RawError>(())
     /// ```
     pub fn as_docref(&self) -> DocRef<'_> {
@@ -314,12 +306,13 @@ impl DocBuf {
     /// returned if data is malformed.
     ///
     /// ```
-    /// # use rawbson::{DocBuf, RawError};
+    /// # use rawbson::{elem, DocBuf, RawError};
     /// use bson::doc;
-    /// let docbuf = DocBuf::from_document(&doc! { "hello": "world" });
+    /// let docbuf = DocBuf::from_document(&doc! { "ferris": true });
     /// for element in docbuf.iter() {
-    ///     let (key, value) = element?;
-    ///     println!("{}: {}", key, value.as_str()?);
+    ///     let (key, value): (&str, elem::Element) = element?;
+    ///     assert_eq!(key, "ferris");
+    ///     assert_eq!(value.as_bool()?, true);
     /// }
     /// # Ok::<(), RawError>(())
     /// ```
@@ -429,7 +422,6 @@ impl DocBuf {
     /// assert!(docbuf.get_document("unknown")?.is_none());
     /// # Ok::<(), RawError>(())
     /// ```
-
     pub fn get_document<'a>(&'a self, key: &str) -> OptResult<DocRef<'a>> {
         self.as_docref().get_document(key)
     }
