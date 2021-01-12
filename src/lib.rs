@@ -218,13 +218,12 @@ impl<'a> From<ValueAccessError> for RawError {
 /// assert_eq!(docbuf.get_str("hello")?, Some("world"));
 /// # Ok::<(), RawError>(())
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DocBuf {
     data: Vec<u8>,
 }
 
 impl DocBuf {
-
     /// Create a new `DocBuf` from the provided `Vec`.
     ///
     /// The data is checked for a declared length equal to the length of the Vec,
@@ -294,9 +293,10 @@ impl DocBuf {
     /// Return a [`DocRef`] borrowing from the data contained in self.
     ///
     /// ```
-    /// # use rawbson::{DocBuf, RawError};
+    /// # use rawbson::{DocBuf, DocRef, RawError};
     /// let docbuf = DocBuf::new(b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00".to_vec())?;
-    /// let docref = docbuf.as_docref();
+    /// let docref: DocRef = docbuf.as_docref();
+    /// assert_eq!(docbuf.as_bytes(), docref.as_bytes());
     /// assert_eq!(
     ///    docbuf.get_str("hello").unwrap(),
     ///    docref.get_str("hello").unwrap(),
@@ -310,6 +310,9 @@ impl DocBuf {
 
     /// Return an iterator over the elements in the `DocBuf`, borrowing data.
     ///
+    /// The associated item type is `Result<&str, Element<'_>>`.  An error is
+    /// returned if data is malformed.
+    ///
     /// ```
     /// # use rawbson::{DocBuf, RawError};
     /// use bson::doc;
@@ -320,7 +323,7 @@ impl DocBuf {
     /// }
     /// # Ok::<(), RawError>(())
     /// ```
-
+    ///
     /// # Note:
     ///
     /// There is no owning iterator for DocBuf.  If you need ownership over
@@ -330,17 +333,102 @@ impl DocBuf {
         self.into_iter()
     }
 
+    /// Get an element from the document.  Finding a particular key requires
+    /// iterating over the document from the beginning, so this is an O(N)
+    /// operation.
+    ///
+    /// Returns an error if the document is malformed.  Returns `Ok(None)`
+    /// if the key is not found in the document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::{doc, oid::ObjectId};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "_id": ObjectId::new(),
+    ///     "f64": 2.5,
+    /// });
+    /// let element = docbuf.get("f64")?.expect("finding key f64");
+    /// assert_eq!(element.as_f64(), Ok(2.5));
+    /// assert!(docbuf.get("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get<'a>(&'a self, key: &str) -> OptResult<elem::Element<'a>> {
         self.as_docref().get(key)
     }
 
+    /// Get an element from the document, and convert it to f64. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed, or if the retrieved value
+    /// is not an f64.  Returns `Ok(None)` if the key is not found in the document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "bool": true,
+    ///     "f64": 2.5,
+    /// });
+    /// assert_eq!(docbuf.get_f64("f64"), Ok(Some(2.5)));
+    /// assert_eq!(docbuf.get_f64("bool"), Err(RawError::UnexpectedType));
+    /// assert_eq!(docbuf.get_f64("unknown"), Ok(None));
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_f64(&self, key: &str) -> OptResult<f64> {
         self.as_docref().get_f64(key)
     }
 
+    /// Get an element from the document, and convert it to a &str. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// The returned &str is a borrowed reference into the DocBuf.  To use it
+    /// beyond the lifetime of self, call to_docbuf() on it.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a string.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "string": "hello",
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_str("string"), Ok(Some("hello")));
+    /// assert_eq!(docbuf.get_str("bool"), Err(RawError::UnexpectedType));
+    /// assert_eq!(docbuf.get_str("unknown"), Ok(None));
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_str<'a>(&'a self, key: &str) -> OptResult<&'a str> {
         self.as_docref().get_str(key)
     }
+
+    /// Get an element from the document, and convert it to a [DocRef]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// The returned [DocRef] is a borrowed reference into the DocBuf.  To use it
+    /// beyond the lifetime of self, call to_owned() on it.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a document.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "doc": { "key": "value"},
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_document("doc")?.expect("finding key doc").get_str("key"), Ok(Some("value")));
+    /// assert_eq!(docbuf.get_document("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_document("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
 
     pub fn get_document<'a>(&'a self, key: &str) -> OptResult<DocRef<'a>> {
         self.as_docref().get_document(key)
@@ -427,7 +515,7 @@ impl<'a> IntoIterator for &'a DocBuf {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DocRef<'a> {
     data: &'a [u8],
 }
@@ -449,6 +537,12 @@ impl<'a> DocRef<'a> {
         Ok(DocRef::new_unchecked(data))
     }
 
+    pub fn to_docbuf(self) -> DocBuf {
+        DocBuf {
+            data: self.data.to_vec(),
+        }
+    }
+
     pub fn new_unchecked(data: &'a [u8]) -> DocRef<'a> {
         DocRef { data }
     }
@@ -463,7 +557,11 @@ impl<'a> DocRef<'a> {
         Ok(None)
     }
 
-    fn get_with<T>(self, key: &str, f: impl FnOnce(elem::Element<'a>) -> RawResult<T>) -> OptResult<T> {
+    fn get_with<T>(
+        self,
+        key: &str,
+        f: impl FnOnce(elem::Element<'a>) -> RawResult<T>,
+    ) -> OptResult<T> {
         self.get(key)?.map(f).transpose()
     }
 
@@ -906,11 +1004,10 @@ fn try_to_str(data: &[u8]) -> RawResult<&str> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bson::{Binary, Bson, JavaScriptCodeWithScope, Regex, Timestamp, doc, spec::BinarySubtype};
+    use bson::{doc, spec::BinarySubtype, Binary, Bson, JavaScriptCodeWithScope, Regex, Timestamp};
     use chrono::TimeZone;
 
     fn to_bytes(doc: &bson::Document) -> Vec<u8> {
