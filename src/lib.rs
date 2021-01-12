@@ -426,26 +426,158 @@ impl DocBuf {
         self.as_docref().get_document(key)
     }
 
+    /// Get an element from the document, and convert it to an [ArrayRef]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// The returned [ArrayRef] is a borrowed reference into the DocBuf.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a document.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "array": [true, 3, null],
+    ///     "bool": true,
+    /// });
+    /// let mut arriter = docbuf.get_array("array")?.expect("finding key array").into_iter();
+    /// let _: bool = arriter.next().unwrap()?.as_bool()?;
+    /// let _: i32 = arriter.next().unwrap()?.as_i32()?;
+    /// let () = arriter.next().unwrap()?.as_null()?;
+    /// assert!(arriter.next().is_none());
+    /// assert!(docbuf.get_array("bool").is_err());
+    /// assert!(docbuf.get_array("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_array<'a>(&'a self, key: &str) -> OptResult<ArrayRef<'a>> {
         self.as_docref().get_array(key)
     }
 
+    /// Get an element from the document, and convert it to an [elem::RawBsonBinary]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// The returned [RawBsonBinary](elem::RawBsonBinary) is a borrowed reference into the DocBuf.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not binary data.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem, RawError};
+    /// use bson::{doc, Binary, spec::BinarySubtype};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "binary": Binary { subtype: BinarySubtype::Generic, bytes: vec![1, 2, 3] },
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_binary("binary")?.map(elem::RawBsonBinary::as_bytes), Some(&[1, 2, 3][..]));
+    /// assert_eq!(docbuf.get_binary("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_binary("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_binary<'a>(&'a self, key: &str) -> OptResult<elem::RawBsonBinary<'a>> {
         self.as_docref().get_binary(key)
     }
 
+    /// Get an element from the document, and convert it to a [bson::oid::ObjectId]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not an object ID.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::{doc, oid::ObjectId};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "_id": ObjectId::new(),
+    ///     "bool": true,
+    /// });
+    /// let _: ObjectId = docbuf.get_object_id("_id")?.unwrap();
+    /// assert_eq!(docbuf.get_object_id("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_object_id("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_object_id(&self, key: &str) -> OptResult<oid::ObjectId> {
         self.as_docref().get_object_id(key)
     }
 
+    /// Get an element from the document, and convert it to a [bool]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a boolean.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::{doc, oid::ObjectId};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "_id": ObjectId::new(),
+    ///     "bool": true,
+    /// });
+    /// assert!(docbuf.get_bool("bool")?.unwrap());
+    /// assert_eq!(docbuf.get_bool("_id").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_object_id("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_bool(&self, key: &str) -> OptResult<bool> {
         self.as_docref().get_bool(key)
     }
 
+    /// Get an element from the document, and convert it to a [bool]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not a boolean.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::doc;
+    /// use chrono::{Utc, Datelike, TimeZone};
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "created_at": Utc.ymd(2020, 3, 15).and_hms(17, 0, 0),
+    ///     "bool": true,
+    /// });
+    /// assert_eq!(docbuf.get_datetime("created_at")?.unwrap().year(), 2020);
+    /// assert_eq!(docbuf.get_datetime("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_datetime("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_datetime(&self, key: &str) -> OptResult<DateTime<Utc>> {
         self.as_docref().get_datetime(key)
     }
 
+    /// Get an element from the document, and convert it to the unit type [()]. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed or if the retrieved value
+    /// is not null.  Returns `Ok(None)` if the key is not found in the
+    /// document.
+    ///
+    /// There is not much reason to use the () value, so this method mostly
+    /// exists for consistency with other element types, and as a way to assert
+    /// type of the element.
+    /// ```
+    /// # use rawbson::{DocBuf, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "null": null,
+    ///     "bool": true,
+    /// });
+    /// docbuf.get_null("null")?.unwrap();
+    /// assert_eq!(docbuf.get_null("bool").unwrap_err(), RawError::UnexpectedType);
+    /// assert!(docbuf.get_null("unknown")?.is_none());
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_null(&self, key: &str) -> OptResult<()> {
         self.as_docref().get_null(key)
     }
@@ -454,6 +586,7 @@ impl DocBuf {
         self.as_docref().get_regex(key)
     }
 
+    ///
     pub fn get_javascript<'a>(&'a self, key: &str) -> OptResult<&'a str> {
         self.as_docref().get_javascript(key)
     }
@@ -466,6 +599,25 @@ impl DocBuf {
         self.as_docref().get_javascript_with_scope(key)
     }
 
+    /// Get an element from the document, and convert it to i32. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed, or if the retrieved value
+    /// is not an i32.  Returns `Ok(None)` if the key is not found in the document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "bool": true,
+    ///     "i32": 1_000_000,
+    /// });
+    /// assert_eq!(docbuf.get_i32("i32"), Ok(Some(1_000_000)));
+    /// assert_eq!(docbuf.get_i32("bool"), Err(RawError::UnexpectedType));
+    /// assert_eq!(docbuf.get_i32("unknown"), Ok(None));
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_i32(&self, key: &str) -> OptResult<i32> {
         self.as_docref().get_i32(key)
     }
@@ -474,13 +626,49 @@ impl DocBuf {
         self.as_docref().get_timestamp(key)
     }
 
+    /// Get an element from the document, and convert it to i64. Finding a
+    /// particular key requires iterating over the document from the beginning,
+    /// so this is an O(N) operation.
+    ///
+    /// Returns an error if the document is malformed, or if the retrieved value
+    /// is not an i64.  Returns `Ok(None)` if the key is not found in the document.
+    ///
+    /// ```
+    /// # use rawbson::{DocBuf, elem::Element, RawError};
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc! {
+    ///     "bool": true,
+    ///     "i64": 9223372036854775807_i64,
+    /// });
+    /// assert_eq!(docbuf.get_i64("i64"), Ok(Some(9223372036854775807)));
+    /// assert_eq!(docbuf.get_i64("bool"), Err(RawError::UnexpectedType));
+    /// assert_eq!(docbuf.get_i64("unknown"), Ok(None));
+    /// # Ok::<(), RawError>(())
+    /// ```
     pub fn get_i64(&self, key: &str) -> OptResult<i64> {
         self.as_docref().get_i64(key)
     }
 
+    /// Return the contained data as a `Vec<u8>`
+    ///
+    /// ```
+    /// # use rawbson::DocBuf;
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc!{});
+    /// assert_eq!(docbuf.into_inner(), b"\x05\x00\x00\x00\x00".to_vec());
+    /// ```
     pub fn into_inner(self) -> Vec<u8> {
         self.data
     }
+
+    /// Return a reference to the contained data as a `&[u8]`
+    ///
+    /// ```
+    /// # use rawbson::DocBuf;
+    /// use bson::doc;
+    /// let docbuf = DocBuf::from_document(&doc!{});
+    /// assert_eq!(docbuf.as_bytes(), b"\x05\x00\x00\x00\x00");
+    /// ```
 
     pub fn as_bytes(&self) -> &[u8] {
         &self.data
@@ -1075,7 +1263,7 @@ mod tests {
             "string": "hello",
             "document": {},
             "array": ["binary", "serialized", "object", "notation"],
-            "binary": Binary { subtype: BinarySubtype::Generic, bytes: vec![1u8, 2, 3] },
+            "binary": Binary { subtype: BinarySubtype::Generic, bytes: vec![1, 2, 3] },
             "object_id": oid::ObjectId::with_bytes([1, 2, 3, 4, 5,6,7,8,9,10, 11,12]),
             "boolean": true,
             "datetime": Utc::now(),

@@ -299,7 +299,7 @@ impl<'a> TryFrom<Element<'a>> for bson::Bson {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct RawBsonBinary<'a> {
     pub(super) subtype: BinarySubtype,
     pub(super) data: &'a [u8],
