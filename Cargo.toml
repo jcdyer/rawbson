@@ -1,6 +1,6 @@
 [package]
 name = "rawbson"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["J. Cliff Dyer <jcd@sdf.org>"]
 description = "Blazing fast zero-copy BSON handling"
 license = "MIT"
