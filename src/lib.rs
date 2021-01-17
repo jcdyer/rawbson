@@ -480,7 +480,7 @@ impl Doc {
     /// use rawbson::DocBuf;
     /// let data = b"\x05\0\0\0\0";
     /// let doc = Doc::new(data)?;
-    /// let docbuf: DocBuf = data.to_docbuf();
+    /// let docbuf: DocBuf = doc.to_docbuf();
     /// # Ok::<(), RawError>(())
     pub fn to_docbuf(&self) -> DocBuf {
         // SAFETY: The validity of the data is checked by self.
