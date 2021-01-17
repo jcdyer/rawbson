@@ -214,9 +214,9 @@ impl<'a> From<ValueAccessError> for RawError {
 /// # Ok::<(), RawError>(())
 /// ```
 ///
-/// Individual elements can be accessed using [`docbuf.get(&key)`](DocBuf::get), or any of
-/// the `get_*` methods, like [`docbuf.get_object_id(&key)`](DocBuf::get_object_id), and
-/// [`docbuf.get_str(&str)`](DocBuf::get_str).  Accessing elements is an O(N) operation,
+/// Individual elements can be accessed using [`docbuf.get(&key)`](Doc::get), or any of
+/// the `get_*` methods, like [`docbuf.get_object_id(&key)`](Doc::get_object_id), and
+/// [`docbuf.get_str(&str)`](Doc::get_str).  Accessing elements is an O(N) operation,
 /// as it requires iterating through the document from the beginning to find the requested
 /// key.
 ///
@@ -394,7 +394,7 @@ impl ToOwned for Doc {
     type Owned = DocBuf;
 
     fn to_owned(&self) -> Self::Owned {
-        unsafe { DocBuf::new_unchecked(self.data.to_owned()) }
+        self.to_docbuf()
     }
 }
 
@@ -470,6 +470,22 @@ impl Doc {
         #[allow(unused_unsafe)]
         unsafe {
             &*(data.as_ref() as *const [u8] as *const Doc)
+        }
+    }
+
+    /// Create a new DocBuf with an owned copy of the data in self.
+    ///
+    /// ```
+    /// # use rawbson::{Doc, RawError};
+    /// use rawbson::DocBuf;
+    /// let data = b"\x05\0\0\0\0";
+    /// let doc = Doc::new(data)?;
+    /// let docbuf: DocBuf = data.to_docbuf();
+    /// # Ok::<(), RawError>(())
+    pub fn to_docbuf(&self) -> DocBuf {
+        // SAFETY: The validity of the data is checked by self.
+        unsafe {
+            DocBuf::new_unchecked(self.data.to_owned())
         }
     }
 
@@ -806,7 +822,7 @@ impl Doc {
     ///
     /// The return value is a `(&str, &Doc)` where the &str represents the javascript code,
     /// and the [`&Doc`](Doc) represents the scope.  Both elements borrow data from the DocBuf.
-    /// If you need an owned copy of the data, you should call [js.to_owned()](str::to_owned) on
+    /// If you need an owned copy of the data, you should call [js.to_owned()](ToOwned::to_owned) on
     /// the code or [scope.to_docbuf()](Doc::to_docbuf) on the scope.
     ///
     /// Returns an error if the document is malformed or if the retrieved value
