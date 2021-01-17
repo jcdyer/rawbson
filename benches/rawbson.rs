@@ -1,6 +1,6 @@
 use bson::doc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rawbson::DocBuf;
+use rawbson::{Doc, DocBuf};
 use std::convert::TryInto;
 use std::io::{Cursor, Read};
 
@@ -46,7 +46,7 @@ fn access_deep_from_bytes(c: &mut Criterion) {
                 let mut bytes = Vec::new();
                 reader.read_to_end(&mut bytes).unwrap();
                 let rawdocbuf = DocBuf::new(bytes).expect("invalid document");
-                let mut rawdoc = rawdocbuf.as_docref();
+                let mut rawdoc = rawdocbuf.as_ref();
                 while let Ok(Some(val)) = rawdoc.get_document("value") {
                     rawdoc = val;
                 }
@@ -91,7 +91,7 @@ fn access_deep_from_type(c: &mut Criterion) {
             let bytes = inbytes.clone();
             let rawdocbuf = DocBuf::new(bytes).expect("invalid document");
             b.iter(|| {
-                let mut rawdoc = rawdocbuf.as_docref();
+                let mut rawdoc = rawdocbuf.as_ref();
                 while let Ok(Some(val)) = rawdoc.get_document("value") {
                     rawdoc = val;
                 }
@@ -302,6 +302,7 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
     group.finish();
 }
 
+
 /// Measure the time to iterate over string values in a document with
 /// a large number of keys.
 ///
@@ -351,6 +352,107 @@ fn iter_broad_from_type(c: &mut Criterion) {
         })
     });
     assert_eq!(rawsize, parsedsize);
+    group.finish();
+}
+
+/// Measure the time to deserialize a struct with a single field from document with
+/// a large number of keys.
+///
+/// In this benchmark, we construct a flat document of 1000 keys, and
+/// iterate over the entire document, converting each value to a string.
+///
+/// This benchmark starts from a Vec<u8> of bytes in bson format and
+/// then times the following steps:
+/// 1.  Constructing the type (bson::Bson, for parsed,
+///     rawbson::DocumentBuf for raw).
+/// 2.  Deserializing to a struct.
+/// 3.  Unwrapping each value
+/// 4.  Accessing the field in the struct to verify its contents.
+fn deserialize_broad_from_bytes(c: &mut Criterion) {
+    const SIZE: usize = 1000;
+
+    #[derive(serde::Deserialize, PartialEq, Eq, Debug)]
+    struct Target {
+        #[serde(rename="key 999")]
+        key: String,
+    }
+
+    let expected = Target { key: String::from("lorem ipsum")};
+    let mut group = c.benchmark_group("deserialize-broad-from-bytes");
+    let inbytes: Vec<u8> = {
+        let doc = construct_broad_doc(SIZE);
+        let mut bytes = Vec::new();
+        doc.to_writer(&mut bytes).unwrap();
+        bytes
+    };
+    let inbytes = &inbytes;
+    group.bench_function("raw", |b| {
+        b.iter(|| {
+            let rawdoc = Doc::new(inbytes).expect("invalid document");
+            let t: Target = rawbson::de::from_doc(rawdoc).unwrap();
+            assert_eq!(&t, &expected);
+        })
+    });
+    group.bench_function("parsed", |b| {
+        b.iter(|| {
+            let mut reader = Cursor::new(&inbytes);
+            let doc = bson::Document::from_reader(&mut reader).unwrap();
+            let t: Target = bson::from_document(doc).unwrap();
+            assert_eq!(&t, &expected)
+        })
+    });
+    group.finish();
+}
+
+/// Measure the time to deserialize a struct with a single field from document with
+/// a large number of keys.
+///
+/// In this benchmark, we construct a flat document of 1000 keys, and
+/// iterate over the entire document, converting each value to a string.
+///
+/// This benchmark starts from a rawbson::DocBuf or bson::Document and
+/// then times the following steps:
+/// 1.  Constructing the type (bson::Bson, for parsed,
+///     rawbson::DocumentBuf for raw).
+/// 2.  Deserializing to a struct.
+/// 3.  Unwrapping each value
+/// 4.  Accessing the field in the struct to verify its contents.
+fn deserialize_broad_from_type(c: &mut Criterion) {
+    const SIZE: usize = 1000;
+
+    #[derive(serde::Deserialize, PartialEq, Eq, Debug)]
+    struct Target {
+        #[serde(rename="key 999")]
+        key: String,
+    }
+
+    let expected = Target { key: String::from("lorem ipsum")};
+    let mut group = c.benchmark_group("deserialize-broad-from-type");
+    let inbytes: Vec<u8> = {
+        let doc = construct_broad_doc(SIZE);
+        let mut bytes = Vec::new();
+        doc.to_writer(&mut bytes).unwrap();
+        bytes
+    };
+    let inbytes = &inbytes;
+    group.bench_function("raw", |b| {
+        let rawdoc = DocBuf::new(inbytes.clone()).unwrap();
+        b.iter(|| {
+            let t: Target = rawbson::de::from_doc(&rawdoc).unwrap();
+            assert_eq!(&t, &expected);
+        })
+    });
+    group.bench_function("parsed", |b| {
+        let mut reader = Cursor::new(inbytes);
+        let doc = bson::Document::from_reader(&mut reader).unwrap();
+        b.iter_with_setup(
+            // clone is required here, since from_document takes ownership.
+            || doc.clone(),
+            |doc| {
+            let t: Target = bson::from_document(doc).unwrap();
+            assert_eq!(&t, &expected)
+        })
+    });
     group.finish();
 }
 
@@ -413,13 +515,15 @@ fn construct_bson_broad(c: &mut Criterion) {
 criterion_group!(
     benches,
     access_deep_from_bytes,
-    access_broad_from_bytes,
-    iter_broad_from_bytes,
     access_deep_from_type,
+    access_broad_from_bytes,
     access_broad_from_type,
+    iter_broad_from_bytes,
     iter_broad_from_type,
     construct_bson_deep,
     construct_bson_broad,
+    deserialize_broad_from_bytes,
+    deserialize_broad_from_type,
 );
 
 criterion_main!(benches);

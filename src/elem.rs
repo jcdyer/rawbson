@@ -9,7 +9,7 @@ use chrono::{DateTime, TimeZone, Utc};
 
 use crate::{
     d128_from_slice, i32_from_slice, i64_from_slice, read_lenencoded, read_nullterminated,
-    u32_from_slice, ArrayRef, DocRef, RawError, RawResult,
+    u32_from_slice, Array, Doc, RawError, RawResult,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -53,17 +53,17 @@ impl<'a> Element<'a> {
         }
     }
 
-    pub fn as_document(self) -> RawResult<DocRef<'a>> {
+    pub fn as_document(self) -> RawResult<&'a Doc> {
         if let ElementType::EmbeddedDocument = self.element_type {
-            DocRef::new(self.data)
+            Doc::new(self.data)
         } else {
             Err(RawError::UnexpectedType)
         }
     }
 
-    pub fn as_array(self) -> RawResult<ArrayRef<'a>> {
+    pub fn as_array(self) -> RawResult<&'a Array> {
         if let ElementType::Array = self.element_type {
-            ArrayRef::new(self.data)
+            Array::new(self.data)
         } else {
             Err(RawError::UnexpectedType)
         }
@@ -186,13 +186,13 @@ impl<'a> Element<'a> {
         }
     }
 
-    pub fn as_javascript_with_scope(self) -> RawResult<(&'a str, DocRef<'a>)> {
+    pub fn as_javascript_with_scope(self) -> RawResult<(&'a str, &'a Doc)> {
         if let ElementType::JavaScriptCodeWithScope = self.element_type {
             let length = i32_from_slice(&self.data[..4]);
             assert_eq!(self.data.len() as i32, length);
 
             let js = read_lenencoded(&self.data[4..])?;
-            let doc = DocRef::new(&self.data[9 + js.len()..])?;
+            let doc = Doc::new(&self.data[9 + js.len()..])?;
 
             Ok((js, doc))
         } else {
@@ -372,6 +372,4 @@ impl<'a> RawBsonTimestamp<'a> {
         // RawBsonTimestamp can only be constructed with the correct data length, so this should always succeed.
         u32_from_slice(&self.data[0..4])
     }
-
-
 }

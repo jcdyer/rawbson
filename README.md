@@ -62,26 +62,29 @@ assert_eq!(
 
 ### Reference types
 
-A BSON document can also be accessed with the [`DocRef<'a>`] reference type,
-which stores a reference to the BSON payload as a `&'a [u8]`.  This allows
-accessing nested documents without reallocation.  This type will probably be
-replacedby an unsized type analogous to `[u8]` or `str` before 1.0.  That
-type will be called `Doc`, and will coexist with DocRef for at least one
-minor release.
+A BSON document can also be accessed with the [`Doc`] reference type,
+which is an unsized type that represents the BSON payload as a `[u8]`.
+This allows accessing nested documents without reallocation.  [Doc]
+must always be accessed via a pointer type, similarly to `[T]` and `str`.
 
-The below example performs no allocation.
+This type will coexist with the now deprecated [DocRef] type for at
+least one minor release.
+
+The below example constructs a bson document in a stack-based array,
+and extracts a &str from it, performing no heap allocation.
 
 ```rust
-use rawbson::DocRef;
+use rawbson::Doc;
 
-let bytes = b"\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00";
-assert_eq!(DocRef::new(bytes)?.get_str("hello")?, Some("world"));
+let bytes = b"\x13\x00\x00\x00\x02hi\x00\x06\x00\x00\x00y'all\x00\x00";
+assert_eq!(Doc::new(bytes)?.get_str("hi")?, Some("y'all"));
 # Ok::<(), rawbson::RawError>(())
 ```
 
 ### Iteration
 
-[`DocRef`] supports iteration, which can also be accessed via [`DocBuf::iter`].
+[`Doc`] implements [`IntoIterator`](std::iter::IntoIterator), which can also
+be accessed via [`DocBuf::iter`], or the deprecated [`DocRef::into_iter`]
 
 ```rust
 use bson::doc;
@@ -105,7 +108,7 @@ assert_eq!(value.as_str()?, "MIT");
 There is also serde deserialization support.
 
 Serde serialization support is not yet provided.  For now, use
-[`bson::to_document`] instead, and then write it out using
+[`bson::to_document`] instead, and then serialize it out using
 [`bson::Document::to_writer`] or [`DocBuf::from_document`].
 
 ```rust

@@ -2,8 +2,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 
 use super::Error;
-use crate::de::BsonDeserializer;
-use crate::DocRef;
+use crate::{Doc, de::BsonDeserializer};
 
 pub static NAME: &str = "$__bson_JavaScript";
 pub static WITH_SCOPE_NAME: &str = "$__bson_JavaScriptWithScope";
@@ -41,15 +40,15 @@ impl<'de> Deserializer<'de> for JavaScriptKeyDeserializer {
 
 pub(super) struct JavaScriptWithScopeDeserializer<'de> {
     js: &'de str,
-    scope: DocRef<'de>,
+    scope: &'de Doc,
     visiting: ScopedVisiting,
 }
 
 impl<'de> JavaScriptWithScopeDeserializer<'de> {
-    pub(super) fn new(data: (&'de str, DocRef<'de>)) -> JavaScriptWithScopeDeserializer<'de> {
+    pub(super) fn new<D: AsRef<Doc> + ?Sized>(data: (&'de str, &'de D)) -> JavaScriptWithScopeDeserializer<'de> {
         JavaScriptWithScopeDeserializer {
             js: data.0,
-            scope: data.1,
+            scope: data.1.as_ref(),
             visiting: ScopedVisiting::Js,
         }
     }
@@ -142,7 +141,7 @@ impl<'de> SeqAccess<'de> for JavaScriptWithScopeDeserializer<'de> {
             }
             ScopedVisiting::Scope => {
                 self.visiting = ScopedVisiting::Done;
-                seed.deserialize(&mut BsonDeserializer::from_rawdoc(self.scope))
+                seed.deserialize(&mut BsonDeserializer::from_doc(&self.scope))
                     .map(Some)
             }
             ScopedVisiting::Done => Ok(None),
@@ -175,7 +174,7 @@ impl<'de> MapAccess<'de> for JavaScriptWithScopeDeserializer<'de> {
             }
             ScopedVisiting::Scope => {
                 self.visiting = ScopedVisiting::Done;
-                seed.deserialize(&mut BsonDeserializer::from_rawdoc(self.scope))
+                seed.deserialize(&mut BsonDeserializer::from_doc(self.scope))
             }
             ScopedVisiting::Done => Err(Error::MalformedDocument),
         }
