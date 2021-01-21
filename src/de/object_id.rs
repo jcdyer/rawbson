@@ -18,7 +18,10 @@ pub struct RawObjectIdDeserializer<'de> {
 
 impl<'de> RawObjectIdDeserializer<'de> {
     pub fn new(bson: Element<'de>) -> RawObjectIdDeserializer<'de> {
-        RawObjectIdDeserializer { bson, visited: false }
+        RawObjectIdDeserializer {
+            bson,
+            visited: false,
+        }
     }
 }
 
@@ -66,7 +69,10 @@ impl<'de> Deserializer<'de> for RawObjectIdDeserializer<'de> {
 impl<'de> MapAccess<'de> for RawObjectIdDeserializer<'de> {
     type Error = Error;
 
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<<K as DeserializeSeed<'de>>::Value>, Self::Error>
+    fn next_key_seed<K>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<<K as DeserializeSeed<'de>>::Value>, Self::Error>
     where
         K: DeserializeSeed<'de>,
     {
@@ -78,7 +84,10 @@ impl<'de> MapAccess<'de> for RawObjectIdDeserializer<'de> {
         }
     }
 
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<<V as DeserializeSeed<'de>>::Value, Self::Error>
+    fn next_value_seed<V>(
+        &mut self,
+        seed: V,
+    ) -> Result<<V as DeserializeSeed<'de>>::Value, Self::Error>
     where
         V: DeserializeSeed<'de>,
     {
@@ -135,4 +144,3 @@ impl<'de> Deserializer<'de> for ObjectIdValueDeserializer<'de> {
         ignored_any unit_struct tuple_struct tuple enum identifier
     );
 }
-

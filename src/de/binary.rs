@@ -88,11 +88,13 @@ impl<'de> MapAccess<'de> for BinaryDeserializer<'de> {
         match self.visiting {
             Visiting::New => {
                 self.visiting = Visiting::Subtype;
-                seed.deserialize(BinaryKeyDeserializer::new(SUBTYPE_FIELD)).map(Some)
+                seed.deserialize(BinaryKeyDeserializer::new(SUBTYPE_FIELD))
+                    .map(Some)
             }
             Visiting::Subtype => {
                 self.visiting = Visiting::Data;
-                seed.deserialize(BinaryKeyDeserializer::new(DATA_FIELD)).map(Some)
+                seed.deserialize(BinaryKeyDeserializer::new(DATA_FIELD))
+                    .map(Some)
             }
             Visiting::Data => {
                 self.visiting = Visiting::Done;
@@ -107,7 +109,9 @@ impl<'de> MapAccess<'de> for BinaryDeserializer<'de> {
         V: DeserializeSeed<'de>,
     {
         match self.visiting {
-            Visiting::Subtype => seed.deserialize(BinarySubtypeDeserializer::new(self.binary.subtype())),
+            Visiting::Subtype => {
+                seed.deserialize(BinarySubtypeDeserializer::new(self.binary.subtype()))
+            }
             Visiting::Data => seed.deserialize(BinaryDataDeserializer::new(self.binary)),
             _ => Err(Error::MalformedDocument),
         }

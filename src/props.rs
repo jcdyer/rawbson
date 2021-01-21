@@ -1,7 +1,6 @@
-use bson::{Binary, Bson, Document, JavaScriptCodeWithScope, Regex, spec::BinarySubtype};
+use bson::{spec::BinarySubtype, Binary, Bson, Document, JavaScriptCodeWithScope, Regex};
 
 use proptest::prelude::*;
-
 
 fn arbitrary_binary_subtype() -> impl Strategy<Value = BinarySubtype> {
     prop_oneof![
@@ -22,7 +21,8 @@ pub(crate) fn arbitrary_bson() -> impl Strategy<Value = Bson> {
         any::<f64>().prop_map(Bson::Double),
         any::<i32>().prop_map(Bson::Int32),
         any::<i64>().prop_map(Bson::Int64),
-        any::<(String, String)>().prop_map(|(pattern, options)| Bson::RegularExpression(Regex { pattern, options })),
+        any::<(String, String)>()
+            .prop_map(|(pattern, options)| Bson::RegularExpression(Regex { pattern, options })),
         any::<[u8; 12]>().prop_map(|bytes| Bson::ObjectId(crate::oid::ObjectId::with_bytes(bytes))),
         (arbitrary_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, bytes)| {
             let bytes = if let BinarySubtype::BinaryOld = subtype {
@@ -41,14 +41,19 @@ pub(crate) fn arbitrary_bson() -> impl Strategy<Value = Bson> {
         any::<String>().prop_map(Bson::JavaScriptCode),
     ];
 
-    leaf.prop_recursive(
-        4,
-        256,
-        10,
-        |inner| prop_oneof![
-            prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| Bson::Document(map.into_iter().collect())),
+    leaf.prop_recursive(4, 256, 10, |inner| {
+        prop_oneof![
+            prop::collection::hash_map("[^\0]*", inner.clone(), 0..12)
+                .prop_map(|map| Bson::Document(map.into_iter().collect())),
             prop::collection::vec(inner.clone(), 0..12).prop_map(Bson::Array),
-            (prop::collection::hash_map("[^\0]*", inner, 0..12).prop_map(|map| map.into_iter().collect::<Document>()), any::<String>()).prop_map(|(scope, code)| Bson::JavaScriptCodeWithScope(JavaScriptCodeWithScope { code, scope })),
+            (
+                prop::collection::hash_map("[^\0]*", inner, 0..12)
+                    .prop_map(|map| map.into_iter().collect::<Document>()),
+                any::<String>()
+            )
+                .prop_map(|(scope, code)| Bson::JavaScriptCodeWithScope(
+                    JavaScriptCodeWithScope { code, scope }
+                )),
         ]
-    )
+    })
 }

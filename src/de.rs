@@ -6,7 +6,7 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 use std::num::TryFromIntError;
 
-use crate::{ArrayIter, Doc, DocBuf, DocIter, RawError, elem::Element};
+use crate::{elem::Element, ArrayIter, Doc, DocBuf, DocIter, RawError};
 use bson::spec::ElementType;
 
 use object_id::RawObjectIdDeserializer;
@@ -66,10 +66,7 @@ pub struct BsonDeserializer<'de> {
 }
 
 impl<'de> BsonDeserializer<'de> {
-    #[deprecated(
-        since = "0.2.0",
-        note = "use from_doc(&docref) instead",
-    )]
+    #[deprecated(since = "0.2.0", note = "use from_doc(&docref) instead")]
     pub fn from_docref(doc: &'de Doc) -> Self {
         BsonDeserializer::from_rawbson(Element::new(ElementType::EmbeddedDocument, doc.as_bytes()))
     }
@@ -83,11 +80,7 @@ impl<'de> BsonDeserializer<'de> {
     }
 }
 
-
-#[deprecated(
-    since = "0.2.0",
-    note = "use from_doc(&docbuf) instead",
-)]
+#[deprecated(since = "0.2.0", note = "use from_doc(&docbuf) instead")]
 pub fn from_docbuf<'de, T>(rawdoc_buf: &'de DocBuf) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
@@ -97,16 +90,13 @@ where
 
 pub fn from_doc<'de, T>(rawdoc: &'de Doc) -> Result<T, crate::de::Error>
 where
-T: Deserialize<'de>,
+    T: Deserialize<'de>,
 {
     let mut de = crate::de::BsonDeserializer::from_doc(rawdoc);
     T::deserialize(&mut de)
 }
 
-#[deprecated(
-    since = "0.2.0",
-    note = "use from_doc(&docref) instead",
-)]
+#[deprecated(since = "0.2.0", note = "use from_doc(&docref) instead")]
 pub fn from_docref<'de, T>(rawdoc: &'de Doc) -> Result<T, crate::de::Error>
 where
     T: Deserialize<'de>,
@@ -624,25 +614,24 @@ impl<'de> Deserializer<'de> for StrDeserializer<'de> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{Doc, DocBuf};
-    use bson::{doc, Bson, DateTime, oid::ObjectId};
+    use bson::{doc, oid::ObjectId, Bson, DateTime};
     use bson::{spec::BinarySubtype, Binary, JavaScriptCodeWithScope};
-
-    use serde::Deserialize;
-
-    use super::{from_bytes, from_doc};
     use chrono::Utc;
+    use serde::Deserialize;
+    
+    use crate::{Doc, DocBuf};
+    use super::{from_bytes, from_doc};
 
     mod uuid {
+        use std::convert::TryInto;
+        use std::fmt;
+        
         use serde::de::Visitor;
         use serde::de::{Deserialize, MapAccess};
-        use serde::export::fmt::Error;
-        use serde::export::Formatter;
         use serde::Deserializer;
 
         use bson::spec::BinarySubtype;
-        use std::convert::TryInto;
-
+        
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub(super) struct Uuid {
             data: Vec<u8>,
@@ -664,7 +653,7 @@ mod tests {
                 impl<'de> Visitor<'de> for UuidVisitor {
                     type Value = Uuid;
 
-                    fn expecting(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                         formatter.write_str("a bson uuid")
                     }
 
@@ -731,7 +720,7 @@ mod tests {
                 impl<'de> Visitor<'de> for KeyVisitor {
                     type Value = FieldKey;
 
-                    fn expecting(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                         formatter.write_str("an identifier")
                     }
 
@@ -772,7 +761,7 @@ mod tests {
                 impl<'de> Visitor<'de> for SubtypeVisitor {
                     type Value = BinarySubtypeFromU8;
 
-                    fn expecting(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                         formatter.write_str("a u8 representing a binary subtype")
                     }
 
@@ -816,7 +805,7 @@ mod tests {
                 impl<'de> Visitor<'de> for DataVisitor {
                     type Value = BinaryDataFromBytes;
 
-                    fn expecting(&self, formatter: &mut Formatter<'_>) -> Result<(), Error> {
+                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                         formatter.write_str("bytes")
                     }
 
@@ -1008,8 +997,7 @@ mod tests {
             .expect("could not encode document");
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
-        let value: Dateish =
-            from_doc(&rawdoc).expect("could not decode utc_datetime");
+        let value: Dateish = from_doc(&rawdoc).expect("could not decode utc_datetime");
         let elapsed = Utc::now().signed_duration_since(value.utc_datetime);
         // The previous now was less than half a second ago
         assert!(elapsed.num_milliseconds() >= 0);
@@ -1044,8 +1032,7 @@ mod tests {
             .expect("could not encode document");
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_object_id("object_id").is_ok());
-        let map: HashMap<&str, Bson> =
-            from_doc(&rawdoc).expect("could not decode object_id");
+        let map: HashMap<&str, Bson> = from_doc(&rawdoc).expect("could not decode object_id");
         assert_eq!(
             map.get("object_id").unwrap(),
             &Bson::ObjectId(ObjectId::with_string("123456123456123456123456").unwrap())
@@ -1060,8 +1047,7 @@ mod tests {
             .expect("could not encode document");
         let rawdoc = DocBuf::new(docbytes).expect("invalid document");
         assert!(rawdoc.get_datetime("utc_datetime").is_ok());
-        let map: HashMap<&str, Bson> =
-            from_doc(&rawdoc).expect("could not decode utc_datetime");
+        let map: HashMap<&str, Bson> = from_doc(&rawdoc).expect("could not decode utc_datetime");
 
         let dt = map.get("utc_datetime").expect("no key utc_datetime");
         let dt = dt

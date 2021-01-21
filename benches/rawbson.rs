@@ -113,7 +113,6 @@ fn access_deep_from_type(c: &mut Criterion) {
     group.finish();
 }
 
-
 /// Measure the time to access string values in a document with a large
 /// number of keys.
 ///
@@ -277,9 +276,9 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
                         eprintln!("raw error in {} {:?}", key, value.element_type());
                     }
                 } else if let Err(err) = result {
-                        eprintln!("raw error in {:?}", err);
-                    }
+                    eprintln!("raw error in {:?}", err);
                 }
+            }
 
             assert_eq!(rawsize, EXPECTEDSIZE);
         })
@@ -301,7 +300,6 @@ fn iter_broad_from_bytes(c: &mut Criterion) {
     });
     group.finish();
 }
-
 
 /// Measure the time to iterate over string values in a document with
 /// a large number of keys.
@@ -351,7 +349,6 @@ fn iter_broad_from_type(c: &mut Criterion) {
             }
         })
     });
-    assert_eq!(rawsize, parsedsize);
     group.finish();
 }
 
@@ -373,11 +370,13 @@ fn deserialize_broad_from_bytes(c: &mut Criterion) {
 
     #[derive(serde::Deserialize, PartialEq, Eq, Debug)]
     struct Target {
-        #[serde(rename="key 999")]
+        #[serde(rename = "key 999")]
         key: String,
     }
 
-    let expected = Target { key: String::from("lorem ipsum")};
+    let expected = Target {
+        key: String::from("lorem ipsum"),
+    };
     let mut group = c.benchmark_group("deserialize-broad-from-bytes");
     let inbytes: Vec<u8> = {
         let doc = construct_broad_doc(SIZE);
@@ -422,11 +421,13 @@ fn deserialize_broad_from_type(c: &mut Criterion) {
 
     #[derive(serde::Deserialize, PartialEq, Eq, Debug)]
     struct Target {
-        #[serde(rename="key 999")]
+        #[serde(rename = "key 999")]
         key: String,
     }
 
-    let expected = Target { key: String::from("lorem ipsum")};
+    let expected = Target {
+        key: String::from("lorem ipsum"),
+    };
     let mut group = c.benchmark_group("deserialize-broad-from-type");
     let inbytes: Vec<u8> = {
         let doc = construct_broad_doc(SIZE);
@@ -449,9 +450,10 @@ fn deserialize_broad_from_type(c: &mut Criterion) {
             // clone is required here, since from_document takes ownership.
             || doc.clone(),
             |doc| {
-            let t: Target = bson::from_document(doc).unwrap();
-            assert_eq!(&t, &expected)
-        })
+                let t: Target = bson::from_document(doc).unwrap();
+                assert_eq!(&t, &expected)
+            },
+        )
     });
     group.finish();
 }

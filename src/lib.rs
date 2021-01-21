@@ -310,10 +310,7 @@ impl DocBuf {
     /// let docref: DocRef = docbuf.as_docref();
     /// # Ok::<(), RawError>(())
     /// ```
-    #[deprecated(
-        since = "0.2.0",
-        note = "use docbuf.as_ref() instead",
-    )]
+    #[deprecated(since = "0.2.0", note = "use docbuf.as_ref() instead")]
     pub fn as_docref(&self) -> &Doc {
         self.as_ref()
     }
@@ -484,9 +481,7 @@ impl Doc {
     /// # Ok::<(), RawError>(())
     pub fn to_docbuf(&self) -> DocBuf {
         // SAFETY: The validity of the data is checked by self.
-        unsafe {
-            DocBuf::new_unchecked(self.data.to_owned())
-        }
+        unsafe { DocBuf::new_unchecked(self.data.to_owned()) }
     }
 
     /// Get an element from the document.  Finding a particular key requires
@@ -943,7 +938,6 @@ impl Deref for DocBuf {
     }
 }
 
-
 impl TryFrom<&Doc> for bson::Document {
     type Error = RawError;
 
@@ -954,7 +948,6 @@ impl TryFrom<&Doc> for bson::Document {
             .collect()
     }
 }
-
 
 impl<'a> IntoIterator for &'a Doc {
     type IntoIter = DocIter<'a>;

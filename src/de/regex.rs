@@ -7,7 +7,7 @@ use crate::elem::RawBsonRegex;
 pub static NAME: &str = "$__bson_Regex";
 pub static REGEXP_FIELD: &str = "$__bson_regexp_regexp";
 pub static OPTIONS_FIELD: &str = "$__bson_regexp_options";
-pub static FIELDS: & [&str] = &[REGEXP_FIELD, OPTIONS_FIELD];
+pub static FIELDS: &[&str] = &[REGEXP_FIELD, OPTIONS_FIELD];
 
 struct RegexKeyDeserializer {
     key: &'static str,
@@ -23,8 +23,8 @@ impl<'de> Deserializer<'de> for RegexKeyDeserializer {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_str(self.key)
     }
@@ -54,22 +54,22 @@ impl<'de> Deserializer<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_seq(self)
     }
 
     fn deserialize_tuple<V>(self, ct: usize, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         if ct == 2 {
             visitor.visit_seq(self)
@@ -112,8 +112,8 @@ impl<'de> SeqAccess<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn next_element_seed<E>(&mut self, seed: E) -> Result<Option<E::Value>, Error>
-        where
-            E: DeserializeSeed<'de>,
+    where
+        E: DeserializeSeed<'de>,
     {
         match self.visiting {
             Visiting::Regex => {
@@ -135,19 +135,23 @@ impl<'de> MapAccess<'de> for RegexDeserializer<'de> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Error>
-        where
-            K: DeserializeSeed<'de>,
+    where
+        K: DeserializeSeed<'de>,
     {
         match self.visiting {
-            Visiting::Regex => seed.deserialize(RegexKeyDeserializer::new(REGEXP_FIELD)).map(Some),
-            Visiting::Options => seed.deserialize(RegexKeyDeserializer::new(OPTIONS_FIELD)).map(Some),
+            Visiting::Regex => seed
+                .deserialize(RegexKeyDeserializer::new(REGEXP_FIELD))
+                .map(Some),
+            Visiting::Options => seed
+                .deserialize(RegexKeyDeserializer::new(OPTIONS_FIELD))
+                .map(Some),
             Visiting::Done => Ok(None),
         }
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
-        where
-            V: DeserializeSeed<'de>,
+    where
+        V: DeserializeSeed<'de>,
     {
         match self.visiting {
             Visiting::Regex => {
@@ -177,22 +181,22 @@ impl<'de> Deserializer<'de> for RegexFieldDeserializer<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_borrowed_str(self.data)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_borrowed_str(self.data)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
-        where
-            V: Visitor<'de>,
+    where
+        V: Visitor<'de>,
     {
         visitor.visit_str(self.data)
     }
