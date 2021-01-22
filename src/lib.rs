@@ -170,6 +170,19 @@ pub enum RawError {
     Utf8EncodingError(Vec<u8>),
 }
 
+impl std::fmt::Display for RawError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use RawError::*;
+        match self {
+            UnexpectedType => write!(f, "unexpected type"),
+            MalformedValue(s) => write!(f, "malformed value: {:?}", s),
+            Utf8EncodingError(_) => write!(f, "utf-8 encoding error"),
+        }
+    }
+}
+
+impl std::error::Error for RawError {}
+
 pub type RawResult<T> = Result<T, RawError>;
 type OptResult<T> = RawResult<Option<T>>;
 
