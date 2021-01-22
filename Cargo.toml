@@ -17,6 +17,7 @@ harness = false
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0.38"
 bson = {version = "1.1", features = ["decimal128"] }
 chrono = { version = "0.4", features = ["serde"] }
 decimal = "2.0.4"

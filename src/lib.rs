@@ -151,6 +151,7 @@ use bson::{decimal128::Decimal128, document::ValueAccessError, oid, spec::Elemen
 
 pub mod de;
 pub mod elem;
+pub mod ser;
 
 #[cfg(test)]
 mod props;
