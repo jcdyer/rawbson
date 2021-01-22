@@ -1,5 +1,9 @@
 # Changelog
 
+# 0.2.1
+
+* Implemented Error for RawError
+
 # 0.2.0
 
 * Converted DocRef<'a> and ArrayRef<'a> to unsized types, &Doc and &Array.
