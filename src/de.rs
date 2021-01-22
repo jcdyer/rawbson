@@ -256,18 +256,33 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
     }
 
     #[cfg(not(feature = "u2i"))]
-    fn deserialize_u8<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        Err(Error::MalformedDocument)
+    fn deserialize_u8<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let val = match self.bson.element_type() {
+            ElementType::Int64 => self.bson.as_i64()?.try_into()?,
+            ElementType::Int32 => self.bson.as_i32()?.try_into()?,
+            _ => return Err(Error::UnexpectedType),
+        };
+        visitor.visit_u8(val)
     }
 
     #[cfg(not(feature = "u2i"))]
-    fn deserialize_u16<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        Err(Error::MalformedDocument)
+    fn deserialize_u16<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let val = match self.bson.element_type() {
+            ElementType::Int64 => self.bson.as_i64()?.try_into()?,
+            ElementType::Int32 => self.bson.as_i32()?.try_into()?,
+            _ => return Err(Error::UnexpectedType),
+        };
+        visitor.visit_u16(val)
     }
 
     #[cfg(not(feature = "u2i"))]
-    fn deserialize_u32<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        Err(Error::MalformedDocument)
+    fn deserialize_u32<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        let val = match self.bson.element_type() {
+            ElementType::Int64 => self.bson.as_i64()?.try_into()?,
+            ElementType::Int32 => self.bson.as_i32()?.try_into()?,
+            _ => return Err(Error::UnexpectedType),
+        };
+        visitor.visit_u32(val)
     }
 
     #[cfg(not(feature = "u2i"))]
@@ -275,6 +290,7 @@ impl<'a, 'de: 'a> Deserializer<'de> for &'a mut BsonDeserializer<'de> {
         let val = match self.bson.element_type() {
             ElementType::Timestamp => self.bson.as_timestamp()?.time() as u64, // TODO: Proper Timestamp handling
             ElementType::Int64 => self.bson.as_i64()?.try_into()?,
+            ElementType::Int32 => self.bson.as_i32()?.try_into()?,
             _ => return Err(Error::UnexpectedType),
         };
         visitor.visit_u64(val)
@@ -618,20 +634,20 @@ mod tests {
     use bson::{spec::BinarySubtype, Binary, JavaScriptCodeWithScope};
     use chrono::Utc;
     use serde::Deserialize;
-    
-    use crate::{Doc, DocBuf};
+
     use super::{from_bytes, from_doc};
+    use crate::{Doc, DocBuf};
 
     mod uuid {
         use std::convert::TryInto;
         use std::fmt;
-        
+
         use serde::de::Visitor;
         use serde::de::{Deserialize, MapAccess};
         use serde::Deserializer;
 
         use bson::spec::BinarySubtype;
-        
+
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub(super) struct Uuid {
             data: Vec<u8>,
@@ -1070,5 +1086,60 @@ mod tests {
         let map: HashMap<&str, i64> =
             from_doc(&rawdoc).expect("could not decode utc_datetime as i64");
         let _time = map.get("utc_datetime").expect("no key utc_datetime");
+    }
+
+    #[test]
+    fn mongodb_compat_write_response_body() -> Result<(), Box<dyn std::error::Error>> {
+        // From mongodb::error::BulkWriteError
+        #[derive(Debug, PartialEq, Clone, Deserialize)]
+        #[non_exhaustive]
+        pub struct BulkWriteError {
+            /// Index into the list of operations that this error corresponds to.
+            pub index: usize,
+
+            /// Identifies the type of write concern error.
+            pub code: i32,
+
+            /// The name associated with the error code.
+            ///
+            /// Note that the server will not return this in some cases, hence `code_name` being an
+            /// `Option`.
+            #[serde(rename = "codeName", default)]
+            pub code_name: Option<String>,
+
+            /// A description of the error that occurred.
+            #[serde(rename = "errmsg")]
+            pub message: String,
+        }
+
+        // From mongodb::operation::WriteResponseBody
+        #[derive(Debug, Deserialize)]
+        struct WriteResponseBody<T = Option<()>> {
+            #[serde(flatten)]
+            body: T,
+
+            n: i64,
+
+            #[serde(rename = "writeErrors")]
+            write_errors: Option<Vec<BulkWriteError>>,
+            /* Not used to trigger this issue
+            #[serde(rename = "writeConcernError")]
+            write_concern_error: Option<WriteConcernError>,
+
+            #[serde(rename = "errorLabels")]
+            labels: Option<Vec<String>>,
+            */
+        }
+
+        let bytes = [
+            99, 0, 0, 0, 1, 111, 107, 0, 0, 0, 0, 0, 0, 0, 240, 63, 16, 110, 0, 0, 0, 0, 0, 4, 119,
+            114, 105, 116, 101, 69, 114, 114, 111, 114, 115, 0, 62, 0, 0, 0, 3, 48, 0, 54, 0, 0, 0,
+            16, 105, 110, 100, 101, 120, 0, 0, 0, 0, 0, 16, 99, 111, 100, 101, 0, 210, 4, 0, 0, 2,
+            101, 114, 114, 109, 115, 103, 0, 16, 0, 0, 0, 109, 121, 32, 101, 114, 114, 111, 114,
+            32, 115, 116, 114, 105, 110, 103, 0, 0, 0, 0,
+        ];
+        let doc = Doc::new(&bytes)?;
+        let wrb: WriteResponseBody = from_doc(doc)?;
+        Ok(())
     }
 }
