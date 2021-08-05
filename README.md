@@ -107,9 +107,12 @@ assert_eq!(value.as_str()?, "MIT");
 
 There is also serde deserialization support.
 
-Serde serialization support is not yet provided.  For now, use
-[`bson::to_document`] instead, and then serialize it out using
-[`bson::Document::to_writer`] or [`DocBuf::from_document`].
+Serde serialization support (with rawbson as the target output) is not yet 
+provided.  For now, use [`bson::to_document`] instead, and then serialize it 
+out using [`bson::Document::to_writer`] or [`DocBuf::from_document`].
+
+Serialization from a rawbson `DocBuf` to `Vec<u8>` is trivially done via 
+the `into_inner()` method.
 
 ```rust
 use serde::Deserialize;
